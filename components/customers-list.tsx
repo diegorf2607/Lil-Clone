@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import { User, Phone, Mail, Calendar, ImageIcon, Gift, Star } from "lucide-react"
+import { User, Phone, Mail, Calendar, ImageIcon, Gift } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { format, parseISO, differenceInDays, addYears, isAfter } from "date-fns"
 import type { Customer, Appointment } from "@/lib/types/crm"
@@ -43,18 +43,6 @@ export function CustomersList({ customers, appointments, onCustomerClick }: Cust
     return daysUntil >= 0 && daysUntil <= 7
   }
 
-  // Check if today is the customer's birthday
-  const isTodayBirthday = (birthdate: string): boolean => {
-    if (!birthdate) return false
-    try {
-      const birth = parseISO(birthdate)
-      const today = new Date()
-      return birth.getMonth() === today.getMonth() && birth.getDate() === today.getDate()
-    } catch {
-      return false
-    }
-  }
-
   // Get customer appointments
   const getCustomerAppointments = (customerId: string): Appointment[] => {
     return appointments.filter((apt) => apt.customerId === customerId)
@@ -67,24 +55,12 @@ export function CustomersList({ customers, appointments, onCustomerClick }: Cust
   }
 
   const filteredCustomers = useMemo(() => {
-    const filtered = customers.filter((customer) => {
+    return customers.filter((customer) => {
       const matchesSearch =
         customer.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         customer.phone.toLowerCase().includes(searchQuery.toLowerCase()) ||
         customer.email?.toLowerCase().includes(searchQuery.toLowerCase())
       return matchesSearch
-    })
-    
-    // Sort: customers with birthday today first, then by name
-    return filtered.sort((a, b) => {
-      const aIsToday = a.birthdate ? isTodayBirthday(a.birthdate) : false
-      const bIsToday = b.birthdate ? isTodayBirthday(b.birthdate) : false
-      
-      if (aIsToday && !bIsToday) return -1
-      if (!aIsToday && bIsToday) return 1
-      
-      // If both have or don't have birthday today, sort by name
-      return a.fullName.localeCompare(b.fullName)
     })
   }, [customers, searchQuery])
 
@@ -116,7 +92,6 @@ export function CustomersList({ customers, appointments, onCustomerClick }: Cust
         {filteredCustomers.map((customer, index) => {
           const nextBirthday = customer.birthdate ? getNextBirthday(customer.birthdate) : null
           const birthdaySoon = customer.birthdate ? isBirthdaySoon(customer.birthdate) : false
-          const todayBirthday = customer.birthdate ? isTodayBirthday(customer.birthdate) : false
           const customerImages = getCustomerImages(customer.id)
           const customerAppointments = getCustomerAppointments(customer.id)
 
@@ -127,42 +102,21 @@ export function CustomersList({ customers, appointments, onCustomerClick }: Cust
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.05 }}
               onClick={() => handleCustomerClick(customer)}
-              className={`bg-white rounded-xl p-6 shadow-sm border transition-all cursor-pointer ${
-                todayBirthday 
-                  ? "border-yellow-300 hover:border-yellow-400 shadow-md ring-2 ring-yellow-200" 
-                  : "border-gray-100 hover:border-[#AFA1FD] hover:shadow-md"
-              }`}
+              className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 hover:border-[#AFA1FD] hover:shadow-md transition-all cursor-pointer"
             >
               <div className="flex items-start justify-between mb-4">
-                <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                  todayBirthday 
-                    ? "bg-gradient-to-br from-yellow-400 to-yellow-600" 
-                    : "bg-gradient-to-br from-[#AFA1FD] to-[#8B7FE8]"
-                }`}>
+                <div className="w-12 h-12 bg-gradient-to-br from-[#AFA1FD] to-[#8B7FE8] rounded-full flex items-center justify-center">
                   <User className="w-6 h-6 text-white" />
                 </div>
-                <div className="flex items-center gap-2">
-                  {todayBirthday && (
-                    <Badge className="bg-yellow-400 text-yellow-900 border-yellow-500 shadow-lg">
-                      <Star className="w-3 h-3 mr-1 fill-yellow-900" />
-                      ¡Es su cumpleaños!
-                    </Badge>
-                  )}
-                  {!todayBirthday && birthdaySoon && (
-                    <Badge className="bg-yellow-100 text-yellow-800 border-yellow-300">
-                      <Gift className="w-3 h-3 mr-1" />
-                      Cumple pronto
-                    </Badge>
-                  )}
-                </div>
+                {birthdaySoon && (
+                  <Badge className="bg-yellow-100 text-yellow-800 border-yellow-300">
+                    <Gift className="w-3 h-3 mr-1" />
+                    Cumple pronto
+                  </Badge>
+                )}
               </div>
 
-              <h3 className="text-lg font-bold text-[#2C293F] mb-2 flex items-center gap-2">
-                {customer.fullName}
-                {todayBirthday && (
-                  <Star className="w-5 h-5 text-yellow-500 fill-yellow-500 animate-pulse" />
-                )}
-              </h3>
+              <h3 className="text-lg font-bold text-[#2C293F] mb-2">{customer.fullName}</h3>
 
               <div className="space-y-2 mb-4">
                 <div className="flex items-center gap-2 text-sm text-gray-600">

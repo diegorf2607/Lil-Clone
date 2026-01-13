@@ -2641,7 +2641,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
                                         let hasHistoryImages = false
                                         
                                         if (crmStore.isLoaded && crmStore.data) {
-                                          // Find customer by phone
+                                          // Find customer by phone (more reliable than ID)
                                           const customer = crmStore.data.customers.find((c) => c.phone === reservation.clientPhone)
                                           
                                           if (customer) {
@@ -2665,17 +2665,31 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
                                               }
                                             }
                                             
-                                            // Find matching appointment
+                                            // Find matching appointment - try multiple matching strategies
                                             historyAppointment = crmStore.data.appointments.find((apt) => {
-                                              return (
-                                                apt.customerId === customer.id &&
-                                                apt.date === normalizedHistoryDate &&
-                                                apt.serviceName === item.service
-                                              )
+                                              // Match by customer ID and date
+                                              const customerMatch = apt.customerId === customer.id
+                                              const dateMatch = apt.date === normalizedHistoryDate
+                                              
+                                              // Match service name (case insensitive, trim whitespace)
+                                              const serviceMatch = apt.serviceName?.trim().toLowerCase() === item.service?.trim().toLowerCase()
+                                              
+                                              return customerMatch && dateMatch && serviceMatch
                                             })
                                             
+                                            // If not found, try without service name match (in case service name changed)
+                                            if (!historyAppointment) {
+                                              historyAppointment = crmStore.data.appointments.find((apt) => {
+                                                const customerMatch = apt.customerId === customer.id
+                                                const dateMatch = apt.date === normalizedHistoryDate
+                                                return customerMatch && dateMatch
+                                              })
+                                            }
+                                            
                                             // Check if appointment has images
-                                            hasHistoryImages = historyAppointment?.inspirationImages && historyAppointment.inspirationImages.length > 0
+                                            hasHistoryImages = historyAppointment?.inspirationImages && 
+                                                              Array.isArray(historyAppointment.inspirationImages) && 
+                                                              historyAppointment.inspirationImages.length > 0
                                           }
                                         }
                                         

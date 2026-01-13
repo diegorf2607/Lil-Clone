@@ -100,20 +100,7 @@ export function useLocalStorageStore() {
       const stored = localStorage.getItem(STORAGE_KEY)
       if (stored) {
         const parsed = JSON.parse(stored)
-        // Merge with sample data to ensure demo appointments exist
-        const mergedData: CRMData = {
-          customers: parsed.customers.length > 0 ? parsed.customers : sampleData.customers,
-          staff: parsed.staff.length > 0 ? parsed.staff : sampleData.staff,
-          appointments: [
-            ...parsed.appointments,
-            // Add sample appointments if they don't exist
-            ...sampleData.appointments.filter(
-              (sampleApt) => !parsed.appointments.some((apt: Appointment) => apt.id === sampleApt.id)
-            ),
-          ],
-        }
-        setData(mergedData)
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(mergedData))
+        setData(parsed)
       } else {
         // Initialize with sample data for demo purposes
         setData(sampleData)
