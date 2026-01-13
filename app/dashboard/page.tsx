@@ -2637,40 +2637,47 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
                                         const historyStatus = getStatusConfig(item.status)
                                         
                                         // Find corresponding appointment in CRM store for this history item
-                                        const historyAppointment = crmStore.isLoaded
-                                          ? crmStore.data.appointments.find((apt) => {
-                                              const customer = crmStore.data.customers.find((c) => c.phone === reservation.clientPhone)
-                                              if (!customer) return false
-                                              
-                                              // Convert date format for comparison
-                                              // History dates are in format "2023-10-15" (YYYY-MM-DD)
-                                              let normalizedHistoryDate = item.date
-                                              // If date is in DD/MM/YYYY format, convert it
-                                              if (item.date.includes("/")) {
-                                                const [day, month, year] = item.date.split("/")
-                                                normalizedHistoryDate = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`
+                                        let historyAppointment = null
+                                        let hasHistoryImages = false
+                                        
+                                        if (crmStore.isLoaded && crmStore.data) {
+                                          // Find customer by phone
+                                          const customer = crmStore.data.customers.find((c) => c.phone === reservation.clientPhone)
+                                          
+                                          if (customer) {
+                                            // Convert date format for comparison
+                                            // History dates are in format "2023-10-15" (YYYY-MM-DD)
+                                            let normalizedHistoryDate = item.date
+                                            // If date is in DD/MM/YYYY format, convert it
+                                            if (item.date.includes("/")) {
+                                              const [day, month, year] = item.date.split("/")
+                                              normalizedHistoryDate = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`
+                                            }
+                                            // Ensure date is in YYYY-MM-DD format
+                                            if (!normalizedHistoryDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                                              // Try to parse and reformat
+                                              try {
+                                                const dateObj = new Date(normalizedHistoryDate)
+                                                normalizedHistoryDate = dateObj.toISOString().split('T')[0]
+                                              } catch (e) {
+                                                // If parsing fails, use original date
+                                                normalizedHistoryDate = item.date
                                               }
-                                              // Ensure date is in YYYY-MM-DD format
-                                              if (!normalizedHistoryDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
-                                                // Try to parse and reformat
-                                                try {
-                                                  const dateObj = new Date(normalizedHistoryDate)
-                                                  normalizedHistoryDate = dateObj.toISOString().split('T')[0]
-                                                } catch (e) {
-                                                  // If parsing fails, skip this appointment
-                                                  return false
-                                                }
-                                              }
-                                              
+                                            }
+                                            
+                                            // Find matching appointment
+                                            historyAppointment = crmStore.data.appointments.find((apt) => {
                                               return (
                                                 apt.customerId === customer.id &&
                                                 apt.date === normalizedHistoryDate &&
                                                 apt.serviceName === item.service
                                               )
                                             })
-                                          : null
-                                        
-                                        const hasHistoryImages = historyAppointment?.inspirationImages && historyAppointment.inspirationImages.length > 0
+                                            
+                                            // Check if appointment has images
+                                            hasHistoryImages = historyAppointment?.inspirationImages && historyAppointment.inspirationImages.length > 0
+                                          }
+                                        }
                                         
                                         return (
                                           <div
