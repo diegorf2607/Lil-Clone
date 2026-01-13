@@ -9,7 +9,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Check, Calendar, Clock, MapPin, ArrowLeft, Upload, X, ImageIcon } from "lucide-react"
 import { WhatsAppWidget } from "@/components/whatsapp-widget"
-import { WhatsAppHelpButton } from "@/components/whatsapp-help-button"
 import { BirthdateField } from "@/components/birthdate-field"
 import { InspirationUploader } from "@/components/inspiration-uploader"
 import type { InspirationImage } from "@/lib/types/crm"
@@ -692,8 +691,11 @@ export default function DemoPage() {
         </AnimatePresence>
       </main>
 
-      <WhatsAppWidget businessPhone="+1 234 567 8900" message="Hola, me gustaría más información sobre los servicios" />
-      <WhatsAppHelpButton variant="floating" />
+      <WhatsAppWidget 
+        phoneNumber="+1 234 567 8900" 
+        businessName="Lilá"
+        message="Hola, tengo una consulta sobre mi reserva."
+      />
     </div>
   )
 }

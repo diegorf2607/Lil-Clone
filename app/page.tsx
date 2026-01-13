@@ -8,7 +8,6 @@ import { Pricing } from "@/components/pricing"
 import { FAQ } from "@/components/faq"
 import { FinalCTA } from "@/components/final-cta"
 import { Footer } from "@/components/footer"
-import { WhatsAppWidget } from "@/components/whatsapp-widget"
 
 export default function Home() {
   return (
@@ -23,12 +22,6 @@ export default function Home() {
       <FAQ />
       <FinalCTA />
       <Footer />
-      
-      <WhatsAppWidget 
-        phoneNumber="+1234567890" 
-        businessName="Lilá"
-        message="Hola Lilá, me gustaría agendar una cita."
-      />
     </main>
   )
 }
