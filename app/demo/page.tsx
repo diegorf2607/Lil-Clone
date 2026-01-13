@@ -1,0 +1,785 @@
+"use client"
+
+import type React from "react"
+
+import { useState } from "react"
+import { motion, AnimatePresence } from "framer-motion"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Users, Briefcase, Check, Calendar, Clock, MapPin, ArrowLeft, Upload, X, ImageIcon } from "lucide-react"
+import { WhatsAppWidget } from "@/components/whatsapp-widget"
+
+type UserRole = "client" | "business" | null
+type Step = "role" | "service" | "location" | "datetime" | "contact" | "confirmation"
+
+interface Service {
+  id: number
+  name: string
+  description: string
+  price: number
+  duration: number
+  requiereAdelanto: boolean
+  montoAdelanto: number
+  metodoPago: "online" | "transferencia" | "no-aplica"
+}
+
+interface BookingData {
+  service: Service | null
+  date: string
+  time: string
+  name: string
+  email: string
+  phone: string
+}
+
+const services: Service[] = [
+  {
+    id: 1,
+    name: "Manicura Clásica",
+    description: "Limpieza, corte y pulido",
+    price: 35,
+    duration: 30,
+    requiereAdelanto: false,
+    montoAdelanto: 0,
+    metodoPago: "no-aplica",
+  },
+  {
+    id: 2,
+    name: "Pedicura Deluxe",
+    description: "Tratamiento completo con masaje",
+    price: 55,
+    duration: 45,
+    requiereAdelanto: true,
+    montoAdelanto: 20,
+    metodoPago: "online",
+  },
+  {
+    id: 3,
+    name: "Diseño de Uñas",
+    description: "Diseño personalizado con gel",
+    price: 75,
+    duration: 60,
+    requiereAdelanto: true,
+    montoAdelanto: 30,
+    metodoPago: "transferencia",
+  },
+]
+
+const timeSlots = [
+  "9:00 AM",
+  "9:30 AM",
+  "10:00 AM",
+  "10:30 AM",
+  "11:00 AM",
+  "11:30 AM",
+  "12:00 PM",
+  "12:30 PM",
+  "1:00 PM",
+  "1:30 PM",
+  "2:00 PM",
+  "2:30 PM",
+  "3:00 PM",
+  "3:30 PM",
+  "4:00 PM",
+  "4:30 PM",
+  "5:00 PM",
+  "5:30 PM",
+  "6:00 PM",
+  "6:30 PM",
+]
+
+const locations = [
+  {
+    id: "1",
+    name: "Sede Centro",
+    address: "Av. Principal 123, Centro",
+    phone: "+1 234 567 8900",
+  },
+  {
+    id: "2",
+    name: "Sede Norte",
+    address: "Calle Norte 456, Zona Norte",
+    phone: "+1 234 567 8901",
+  },
+  {
+    id: "3",
+    name: "Sede Sur",
+    address: "Av. Sur 789, Zona Sur",
+    phone: "+1 234 567 8902",
+  },
+]
+
+export default function DemoPage() {
+  const [role, setRole] = useState<UserRole>(null)
+  const [step, setStep] = useState<Step>("role")
+  const [selectedService, setSelectedService] = useState<string>("")
+  const [selectedLocation, setSelectedLocation] = useState<string>("")
+  const [selectedDate, setSelectedDate] = useState<string>("")
+  const [selectedTime, setSelectedTime] = useState<string>("")
+  const [contactInfo, setContactInfo] = useState({ name: "", email: "", phone: "" })
+  const [inspirationImages, setInspirationImages] = useState<File[]>([])
+  const [inspirationImagePreviews, setInspirationImagePreviews] = useState<string[]>([])
+  const [comments, setComments] = useState<string>("")
+  const [paymentMethod, setPaymentMethod] = useState<"online" | "transferencia" | null>(null)
+  const [paymentCompleted, setPaymentCompleted] = useState(false)
+  const [transferReceipt, setTransferReceipt] = useState<File | null>(null)
+  const [cardNumber, setCardNumber] = useState("")
+  const [cardExpiry, setCardExpiry] = useState("")
+  const [cardCvc, setCardCvc] = useState("")
+
+  const handleRoleSelect = (selectedRole: UserRole) => {
+    setRole(selectedRole)
+    if (selectedRole === "client") {
+      setStep("service")
+    } else {
+      // Redirect to admin panel
+      window.location.href = "/admin"
+    }
+  }
+
+  const handleServiceSelect = (service: string) => {
+    setSelectedService(service)
+    setStep("location")
+  }
+
+  const handleLocationSelect = (locationId: string) => {
+    setSelectedLocation(locationId)
+    setStep("datetime")
+  }
+
+  const handleDateTimeSelect = () => {
+    if (selectedDate && selectedTime) {
+      setStep("contact")
+    }
+  }
+
+  const handleContactSubmit = () => {
+    if (contactInfo.name && contactInfo.email && contactInfo.phone) {
+      setStep("confirmation")
+    }
+  }
+
+  const handlePaymentSubmit = () => {
+    if (!selectedService) {
+      setStep("confirmation")
+      return
+    }
+
+    if (selectedService === "online") {
+      if (!cardNumber || !cardExpiry || !cardCvc) {
+        alert("Por favor completa todos los datos de la tarjeta")
+        return
+      }
+      setPaymentCompleted(true)
+      setTimeout(() => {
+        setStep("confirmation")
+      }, 1500)
+    } else if (selectedService === "transferencia") {
+      if (!transferReceipt) {
+        alert("Por favor sube el comprobante de transferencia")
+        return
+      }
+      setPaymentCompleted(true)
+      setStep("confirmation")
+    }
+  }
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      setTransferReceipt(file)
+    }
+  }
+
+  const handleConfirmBooking = () => {
+    setStep("success")
+  }
+
+  const handleBack = () => {
+    if (step === "service") setStep("role")
+    else if (step === "location") setStep("service")
+    else if (step === "datetime") setStep("location")
+    else if (step === "contact") setStep("datetime")
+    else if (step === "confirmation") setStep("contact")
+  }
+
+  const getProgress = () => {
+    if (step === "role") return 0
+    if (step === "service") return 20
+    if (step === "location") return 40
+    if (step === "datetime") return 60
+    if (step === "contact") return 80
+    if (step === "confirmation") return 100
+    return 0
+  }
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || [])
+    if (files.length === 0) return
+
+    // Limit to 3 images
+    const newFiles = [...inspirationImages, ...files].slice(0, 3)
+
+    // Create preview URLs
+    const newPreviews = newFiles.map((file) => URL.createObjectURL(file))
+
+    setInspirationImages(newFiles)
+    setInspirationImagePreviews(newPreviews)
+  }
+
+  const handleRemoveImage = (index: number) => {
+    const newImages = inspirationImages.filter((_, i) => i !== index)
+    const newPreviews = inspirationImagePreviews.filter((_, i) => i !== index)
+
+    setInspirationImages(newImages)
+    setInspirationImagePreviews(newPreviews)
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-[#DFDBF1]/30 via-white to-[#AFA1FD]/20 relative overflow-hidden">
+      {/* Floating orbs for visual interest */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <motion.div
+          animate={{
+            x: [0, 100, 0],
+            y: [0, -100, 0],
+          }}
+          transition={{
+            duration: 20,
+            repeat: Number.POSITIVE_INFINITY,
+            ease: "linear",
+          }}
+          className="absolute top-20 left-10 w-64 h-64 bg-[#AFA1FD]/10 rounded-full blur-3xl"
+        />
+        <motion.div
+          animate={{
+            x: [0, -100, 0],
+            y: [0, 100, 0],
+          }}
+          transition={{
+            duration: 25,
+            repeat: Number.POSITIVE_INFINITY,
+            ease: "linear",
+          }}
+          className="absolute bottom-20 right-10 w-96 h-96 bg-[#DFDBF1]/20 rounded-full blur-3xl"
+        />
+      </div>
+
+      {/* Header */}
+
+      {/* Main Content */}
+      <main className="container mx-auto px-4 py-12 max-w-4xl relative z-10">
+        <AnimatePresence mode="wait">
+          {/* Role Selection */}
+          {step === "role" && (
+            <motion.div
+              key="role"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="text-center"
+            >
+              <motion.h1
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+                className="text-6xl font-bold mb-4 bg-gradient-to-r from-[#2C293F] to-[#AFA1FD] bg-clip-text text-transparent"
+              >
+                Bienvenido a Lilá
+              </motion.h1>
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.2 }}
+                className="text-2xl text-[#AFA1FD] mb-16"
+              >
+                ¿Qué te trae hoy?
+              </motion.p>
+
+              <div className="grid md:grid-cols-2 gap-8 max-w-3xl mx-auto">
+                <motion.div
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.3 }}
+                  whileHover={{ scale: 1.03, y: -5 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => handleRoleSelect("client")}
+                  className="bg-white rounded-3xl p-10 shadow-xl border border-gray-100 hover:border-[#AFA1FD] hover:shadow-2xl transition-all cursor-pointer group relative overflow-hidden"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-br from-[#AFA1FD]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <div className="relative">
+                    <motion.div
+                      whileHover={{ rotate: 360 }}
+                      transition={{ duration: 0.6 }}
+                      className="w-24 h-24 rounded-full bg-gradient-to-br from-[#DFDBF1] to-[#AFA1FD]/30 flex items-center justify-center mx-auto mb-6 shadow-lg"
+                    >
+                      <Users className="w-12 h-12 text-[#AFA1FD]" />
+                    </motion.div>
+                    <h2 className="text-3xl font-bold text-[#2C293F] mb-4">Soy Cliente</h2>
+                    <p className="text-[#AFA1FD] text-lg mb-8">Quiero reservar un servicio </p>
+                    <Button className="w-full bg-gradient-to-r from-[#AFA1FD] to-[#9890E8] hover:from-[#9890E8] hover:to-[#8880D8] text-white shadow-lg text-lg py-6">
+                      Continuar
+                    </Button>
+                  </div>
+                </motion.div>
+
+                <motion.div
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.4 }}
+                  whileHover={{ scale: 1.03, y: -5 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => handleRoleSelect("business")}
+                  className="bg-white rounded-3xl p-10 shadow-xl border border-gray-100 hover:border-[#AFA1FD] hover:shadow-2xl transition-all cursor-pointer group relative overflow-hidden"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-br from-[#AFA1FD]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <div className="relative">
+                    <motion.div
+                      whileHover={{ rotate: 360 }}
+                      transition={{ duration: 0.6 }}
+                      className="w-24 h-24 rounded-full bg-gradient-to-br from-[#DFDBF1] to-[#AFA1FD]/30 flex items-center justify-center mx-auto mb-6 shadow-lg"
+                    >
+                      <Briefcase className="w-12 h-12 text-[#AFA1FD]" />
+                    </motion.div>
+                    <h2 className="text-3xl font-bold text-[#2C293F] mb-4">Soy Empresa</h2>
+                    <p className="text-[#AFA1FD] text-lg mb-8">Quiero gestionar negocio </p>
+                    <Button className="w-full bg-gradient-to-r from-[#AFA1FD] to-[#9890E8] hover:from-[#9890E8] hover:to-[#8880D8] text-white shadow-lg text-lg py-6">
+                      Continuar
+                    </Button>
+                  </div>
+                </motion.div>
+              </div>
+
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.5 }}
+                className="text-sm text-gray-500 mt-12"
+              >
+                Selecciona tu rol para acceder al sistema correspondiente
+              </motion.p>
+            </motion.div>
+          )}
+
+          {/* Step Indicator */}
+          {step !== "role" && (
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex justify-center gap-4 mb-16"
+            >
+              {[1, 2, 3, 4, 5].map((num) => (
+                <motion.div
+                  key={num}
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ delay: num * 0.1 }}
+                  className="relative"
+                >
+                  <div
+                    className={`w-14 h-14 rounded-full flex items-center justify-center font-bold text-lg transition-all shadow-lg ${
+                      num === getProgress() / 20
+                        ? "bg-gradient-to-br from-[#AFA1FD] to-[#9890E8] text-white scale-110 ring-4 ring-[#AFA1FD]/30"
+                        : num < getProgress() / 20
+                          ? "bg-gradient-to-br from-[#AFA1FD] to-[#9890E8] text-white"
+                          : "bg-white text-[#AFA1FD] border-2 border-[#DFDBF1]"
+                    }`}
+                  >
+                    {num < getProgress() / 20 ? <Check className="w-7 h-7" /> : num}
+                  </div>
+                  {num < 5 && (
+                    <div
+                      className={`absolute top-1/2 left-full w-8 h-1 -translate-y-1/2 transition-all ${
+                        num < getProgress() / 20 ? "bg-[#AFA1FD]" : "bg-[#DFDBF1]"
+                      }`}
+                    />
+                  )}
+                </motion.div>
+              ))}
+            </motion.div>
+          )}
+
+          {/* Service Selection */}
+          {step === "service" && (
+            <motion.div
+              key="service"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+            >
+              <h2 className="text-5xl font-bold text-[#2C293F] mb-4">Elige tu servicio</h2>
+              <p className="text-xl text-[#AFA1FD] mb-10">Selecciona el servicio que deseas reservar</p>
+
+              <div className="space-y-5 mb-10">
+                {services.map((service, index) => (
+                  <motion.div
+                    key={service.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                    whileHover={{ scale: 1.02, y: -3 }}
+                    onClick={() => handleServiceSelect(service.name)}
+                    className={`bg-white rounded-3xl p-8 border-2 cursor-pointer transition-all shadow-lg hover:shadow-2xl group relative overflow-hidden ${
+                      selectedService === service.name
+                        ? "border-[#AFA1FD] ring-4 ring-[#AFA1FD]/20"
+                        : "border-gray-200 hover:border-[#AFA1FD]"
+                    }`}
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-[#AFA1FD]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <div className="flex justify-between items-start relative">
+                      <div className="flex-1">
+                        <h3 className="text-2xl font-bold text-[#2C293F] mb-3">{service.name}</h3>
+                        <p className="text-[#AFA1FD] text-lg mb-4 text-slate-400">{service.description}</p>
+                        <div className="flex items-center gap-2 text-gray-500">
+                          <Clock className="w-4 h-4" />
+                          <span className="text-sm font-medium">{service.duration} min</span>
+                        </div>
+                      </div>
+                      <div className="text-right ml-6">
+                        <p className="text-4xl font-bold bg-gradient-to-r from-[#AFA1FD] to-[#9890E8] bg-clip-text text-transparent">
+                          ${service.price}
+                        </p>
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+
+              <div className="flex gap-4">
+                <Button
+                  onClick={handleBack}
+                  variant="outline"
+                  className="flex-1 border-2 border-gray-300 text-[#2C293F] bg-white hover:bg-gray-50 text-lg py-6"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={() => selectedService && setStep("location")}
+                  disabled={!selectedService}
+                  className="flex-1 bg-gradient-to-r from-[#2C293F] to-[#3d3a52] hover:from-[#3d3a52] hover:to-[#2C293F] text-white disabled:opacity-50 shadow-lg text-lg py-6"
+                >
+                  Continuar
+                </Button>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Location Selection */}
+          {step === "location" && role === "client" && (
+            <motion.div
+              key="location"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              className="space-y-8"
+            >
+              <div className="text-center space-y-4">
+                <h2 className="text-4xl font-bold">Selecciona tu sede</h2>
+                <p className="text-[#DFDBF1]/70 text-lg text-slate-400">Elige la ubicación más conveniente para ti</p>
+              </div>
+
+              <div className="grid gap-4">
+                {locations.map((location) => (
+                  <motion.button
+                    key={location.id}
+                    onClick={() => handleLocationSelect(location.id)}
+                    className={`p-6 rounded-2xl border-2 transition-all text-left ${
+                      selectedLocation === location.id
+                        ? "border-[#AFA1FD] bg-[#AFA1FD]/10"
+                        : "border-white/10 bg-white/5 hover:border-[#AFA1FD]/50"
+                    }`}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <div className="flex items-start gap-4">
+                      <div className="p-3 rounded-xl bg-[#AFA1FD]/20">
+                        <MapPin className="w-6 h-6 text-[#AFA1FD]" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-xl font-semibold mb-2">{location.name}</h3>
+                        <p className="text-[#DFDBF1]/70 mb-1 text-slate-400">{location.address}</p>
+                        <p className="text-[#DFDBF1]/50 text-sm text-slate-400">{location.phone}</p>
+                      </div>
+                      {selectedLocation === location.id && (
+                        <div className="p-2 rounded-full bg-[#AFA1FD]">
+                          <Check className="w-5 h-5 text-white" />
+                        </div>
+                      )}
+                    </div>
+                  </motion.button>
+                ))}
+              </div>
+
+              <div className="flex gap-4">
+                <Button
+                  onClick={handleBack}
+                  variant="outline"
+                  className="flex-1 bg-white/5 border-white/10 hover:bg-white/10"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Atrás
+                </Button>
+                <Button
+                  onClick={() => selectedLocation && setStep("datetime")}
+                  disabled={!selectedLocation}
+                  className="flex-1 bg-gradient-to-r from-[#AFA1FD] to-[#9890E8] text-white"
+                >
+                  Continuar
+                </Button>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Date & Time Selection */}
+          {step === "datetime" && role === "client" && (
+            <motion.div
+              key="datetime"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              className="space-y-8"
+            >
+              <div className="text-center space-y-4">
+                <h2 className="text-4xl font-bold">Fecha y hora</h2>
+                <p className="text-[#DFDBF1]/70 text-lg text-slate-400">Selecciona cuándo deseas tu cita</p>
+              </div>
+
+              <div className="mb-8">
+                <Label htmlFor="date" className="text-[#2C293F] font-bold text-lg mb-3 block flex items-center gap-2">
+                  <Calendar className="w-5 h-5 text-[#AFA1FD]" />
+                  Fecha
+                </Label>
+                <Input
+                  id="date"
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="bg-white border-2 border-gray-300 focus:border-[#AFA1FD] rounded-2xl text-lg py-6 shadow-sm"
+                />
+              </div>
+
+              <div className="mb-10">
+                <Label className="text-[#2C293F] font-bold text-lg mb-4 block flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-[#AFA1FD]" />
+                  Hora
+                </Label>
+                <div className="grid grid-cols-4 gap-3 max-h-96 overflow-y-auto p-3 bg-gradient-to-br from-[#DFDBF1]/20 to-transparent rounded-2xl">
+                  {timeSlots.map((time, index) => (
+                    <motion.div
+                      key={time}
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: index * 0.02 }}
+                    >
+                      <Button
+                        onClick={() => setSelectedTime(time)}
+                        variant="outline"
+                        className={`w-full transition-all shadow-sm ${
+                          selectedTime === time
+                            ? "bg-gradient-to-r from-[#AFA1FD] to-[#9890E8] text-white border-[#AFA1FD] shadow-lg scale-105"
+                            : "bg-white border-gray-300 text-[#AFA1FD] hover:bg-[#DFDBF1]/50 hover:border-[#AFA1FD]"
+                        }`}
+                      >
+                        {time}
+                      </Button>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex gap-4">
+                <Button
+                  onClick={handleBack}
+                  variant="outline"
+                  className="flex-1 border-2 border-gray-300 text-[#2C293F] bg-white hover:bg-gray-50 text-lg py-6"
+                >
+                  Atrás
+                </Button>
+                <Button
+                  onClick={handleDateTimeSelect}
+                  disabled={!selectedDate || !selectedTime}
+                  className="flex-1 bg-gradient-to-r from-[#2C293F] to-[#3d3a52] hover:from-[#3d3a52] hover:to-[#2C293F] text-white disabled:opacity-50 shadow-lg text-lg py-6"
+                >
+                  Continuar
+                </Button>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Contact Information */}
+          {step === "contact" && role === "client" && (
+            <motion.div
+              key="contact"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+            >
+              <h2 className="text-5xl font-bold text-[#2C293F] mb-4">Información de contacto</h2>
+              <p className="text-xl text-[#AFA1FD] mb-10">Necesitamos tus datos para confirmar la cita</p>
+
+              <div className="space-y-7 mb-10">
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+                  <Label htmlFor="name" className="text-[#2C293F] font-bold text-lg mb-3 block">
+                    Nombre completo
+                  </Label>
+                  <Input
+                    id="name"
+                    placeholder="Tu nombre"
+                    value={contactInfo.name}
+                    onChange={(e) => setContactInfo({ ...contactInfo, name: e.target.value })}
+                    className="bg-white border-2 border-gray-300 focus:border-[#AFA1FD] rounded-2xl text-lg py-6 shadow-sm"
+                  />
+                </motion.div>
+
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+                  <Label htmlFor="email" className="text-[#2C293F] font-bold text-lg mb-3 block">
+                    Email
+                  </Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="tu@email.com"
+                    value={contactInfo.email}
+                    onChange={(e) => setContactInfo({ ...contactInfo, email: e.target.value })}
+                    className="bg-white border-2 border-gray-300 focus:border-[#AFA1FD] rounded-2xl text-lg py-6 shadow-sm"
+                  />
+                </motion.div>
+
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+                  <Label htmlFor="phone" className="text-[#2C293F] font-bold text-lg mb-3 block">
+                    Teléfono
+                  </Label>
+                  <Input
+                    id="phone"
+                    type="tel"
+                    placeholder="+1 234 567 8900"
+                    value={contactInfo.phone}
+                    onChange={(e) => setContactInfo({ ...contactInfo, phone: e.target.value })}
+                    className="bg-white border-2 border-gray-300 focus:border-[#AFA1FD] rounded-2xl text-lg py-6 shadow-sm"
+                  />
+                </motion.div>
+
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
+                  <Label className="text-[#2C293F] font-bold text-lg mb-3 block flex items-center gap-2">
+                    <ImageIcon className="w-5 h-5 text-[#AFA1FD]" />
+                    Imágenes de inspiración (opcional)
+                  </Label>
+                  <p className="text-sm text-gray-600 mb-4">Sube hasta 3 imágenes de referencia para tu servicio</p>
+
+                  {/* Image Previews */}
+                  {inspirationImagePreviews.length > 0 && (
+                    <div className="grid grid-cols-3 gap-4 mb-4">
+                      {inspirationImagePreviews.map((preview, index) => (
+                        <motion.div
+                          key={index}
+                          initial={{ opacity: 0, scale: 0.8 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          className="relative aspect-square rounded-xl overflow-hidden border-2 border-gray-200 group"
+                        >
+                          <img
+                            src={preview || "/placeholder.svg"}
+                            alt={`Inspiración ${index + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                          <button
+                            onClick={() => handleRemoveImage(index)}
+                            className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                            type="button"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </motion.div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Upload Button */}
+                  {inspirationImages.length < 3 && (
+                    <label
+                      htmlFor="inspiration-upload"
+                      className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-[#AFA1FD]/40 rounded-2xl cursor-pointer bg-gray-50 hover:bg-gray-100 transition-all"
+                    >
+                      <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                        <Upload className="w-8 h-8 text-[#AFA1FD] mb-2" />
+                        <p className="text-sm font-medium text-gray-600">Haz clic para subir imágenes</p>
+                        <p className="text-xs text-gray-500">PNG, JPG hasta 5MB ({inspirationImages.length}/3)</p>
+                      </div>
+                      <input
+                        id="inspiration-upload"
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={handleImageUpload}
+                        className="hidden"
+                      />
+                    </label>
+                  )}
+                </motion.div>
+
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
+                  <Label htmlFor="comments" className="text-[#2C293F] font-bold text-lg mb-3 block">
+                    Comentarios o solicitudes especiales (opcional)
+                  </Label>
+                  <textarea
+                    id="comments"
+                    placeholder="Ej: Tengo alergia a ciertos productos, prefiero colores pastel, etc."
+                    value={comments}
+                    onChange={(e) => setComments(e.target.value)}
+                    className="w-full bg-white border-2 border-gray-300 focus:border-[#AFA1FD] rounded-2xl text-lg p-4 shadow-sm min-h-[120px] resize-none"
+                    rows={4}
+                  />
+                </motion.div>
+              </div>
+
+              <div className="flex gap-4">
+                <Button
+                  onClick={handleBack}
+                  variant="outline"
+                  className="flex-1 border-2 border-gray-300 text-[#2C293F] bg-white hover:bg-gray-50 text-lg py-6"
+                >
+                  Atrás
+                </Button>
+                <Button
+                  onClick={handleContactSubmit}
+                  disabled={!contactInfo.name || !contactInfo.email || !contactInfo.phone}
+                  className="flex-1 bg-gradient-to-r from-[#AFA1FD] to-[#9890E8] text-white disabled:opacity-50 text-lg py-6"
+                >
+                  Confirmar Reserva
+                </Button>
+              </div>
+            </motion.div>
+          )}
+
+          {step === "confirmation" && role === "client" && (
+            <motion.div
+              key="confirmation"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-center py-12"
+            >
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ delay: 0.2, type: "spring" }}
+                className="w-20 h-20 rounded-full bg-gradient-to-r from-[#10b981] to-[#059669] flex items-center justify-center mx-auto mb-8 shadow-2xl"
+              >
+                <Check className="w-10 h-10 text-white" />
+              </motion.div>
+              <h2 className="text-5xl font-bold text-[#2C293F] mb-4">¡Reserva confirmada!</h2>
+              <p className="text-xl text-[#AFA1FD] mb-8">Nos vemos pronto</p>
+              <Button
+                onClick={() => (window.location.href = "/")}
+                className="bg-gradient-to-r from-[#AFA1FD] to-[#9890E8] text-white text-lg py-6 px-12"
+              >
+                Volver al inicio
+              </Button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </main>
+
+      <WhatsAppWidget businessPhone="+1 234 567 8900" message="Hola, me gustaría más información sobre los servicios" />
+    </div>
+  )
+}

@@ -1,0 +1,34 @@
+import { Navbar } from "@/components/navbar"
+import { Hero } from "@/components/hero"
+import { AgendaProductivity } from "@/components/agenda-productivity"
+import { ProductTour } from "@/components/product-tour"
+import { Metrics } from "@/components/metrics"
+import { Testimonials } from "@/components/testimonials"
+import { Pricing } from "@/components/pricing"
+import { FAQ } from "@/components/faq"
+import { FinalCTA } from "@/components/final-cta"
+import { Footer } from "@/components/footer"
+import { WhatsAppWidget } from "@/components/whatsapp-widget"
+
+export default function Home() {
+  return (
+    <main className="min-h-screen">
+      <Navbar />
+      <Hero />
+      <AgendaProductivity />
+      <ProductTour />
+      <Metrics />
+      <Testimonials />
+      <Pricing />
+      <FAQ />
+      <FinalCTA />
+      <Footer />
+      
+      <WhatsAppWidget 
+        phoneNumber="+1234567890" 
+        businessName="Lilá"
+        message="Hola Lilá, me gustaría agendar una cita."
+      />
+    </main>
+  )
+}
