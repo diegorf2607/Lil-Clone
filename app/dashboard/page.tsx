@@ -128,7 +128,7 @@ interface Reservation {
   history: Array<{ date: string; service: string; status: string }>
 }
 
-export default function AdminPage() {
+export default function AdminPage({ initialView }: { initialView?: AdminView }) {
   const { user, isLoading, logout } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
@@ -152,19 +152,23 @@ export default function AdminPage() {
     )
   }
 
-  const [currentView, setCurrentView] = useState<AdminView>("dashboard")
+  const [currentView, setCurrentView] = useState<AdminView>(initialView || "dashboard")
   const [calendarView, setCalendarView] = useState<"week" | "day">("week")
   const [currentDate, setCurrentDate] = useState(new Date())
 
-  // Sync currentView with pathname
+  // Sync currentView with pathname or initialView
   useEffect(() => {
+    if (initialView) {
+      setCurrentView(initialView)
+      return
+    }
     if (pathname === "/dashboard") setCurrentView("dashboard")
     else if (pathname === "/dashboard/services" || pathname === "/dashboard/servicios") setCurrentView("services")
     else if (pathname === "/dashboard/calendar" || pathname === "/dashboard/calendario") setCurrentView("calendar")
     else if (pathname === "/dashboard/reservations" || pathname === "/dashboard/reservas") setCurrentView("reservations")
     else if (pathname === "/dashboard/config" || pathname === "/dashboard/configuracion") setCurrentView("config")
     else if (pathname === "/dashboard/customers" || pathname === "/dashboard/clientes") setCurrentView("customers")
-  }, [pathname])
+  }, [pathname, initialView])
 
 
   const [hoveredPackId, setHoveredPackId] = useState<string | null>(null)
