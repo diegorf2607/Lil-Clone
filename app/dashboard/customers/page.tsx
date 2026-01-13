@@ -10,20 +10,37 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
 import { BirthdateField } from "@/components/birthdate-field"
-import { Plus, X } from "lucide-react"
+import { Plus, X, Calendar, Clock } from "lucide-react"
 import { toast } from "@/components/ui/use-toast"
+
+interface Service {
+  id: number
+  name: string
+  duration: number
+  price: number
+}
 
 export default function CustomersPage() {
   const { user, isLoading } = useAuth()
   const router = useRouter()
   const crmStore = useLocalStorageStore()
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [services, setServices] = useState<Service[]>([])
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     phone: "",
     birthdate: "",
+    createAppointment: false,
+    appointmentService: "",
+    appointmentDate: "",
+    appointmentTime: "",
+    appointmentStaff: "",
+    appointmentNotes: "",
+    hasExistingAppointment: false,
   })
 
   useEffect(() => {
@@ -31,6 +48,21 @@ export default function CustomersPage() {
       router.push("/login")
     }
   }, [user, isLoading, router])
+
+  // Load services from localStorage
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const savedServices = localStorage.getItem("lilaServices")
+      if (savedServices) {
+        try {
+          const parsed = JSON.parse(savedServices)
+          setServices(parsed.map((s: any) => ({ id: s.id, name: s.name, duration: s.duration || 30, price: s.price || 0 })))
+        } catch (e) {
+          console.error("Error loading services:", e)
+        }
+      }
+    }
+  }, [])
 
   const handleCreateCustomer = () => {
     if (!formData.name || !formData.phone) {
@@ -52,6 +84,18 @@ export default function CustomersPage() {
       return
     }
 
+    // Validate appointment fields if creating appointment
+    if (formData.createAppointment && !formData.hasExistingAppointment) {
+      if (!formData.appointmentService || !formData.appointmentDate || !formData.appointmentTime) {
+        toast({
+          title: "Campos de cita requeridos",
+          description: "Por favor completa servicio, fecha y hora si vas a crear una cita",
+          variant: "destructive",
+        })
+        return
+      }
+    }
+
     const customerId = `customer_${Date.now()}`
     crmStore.upsertCustomer({
       id: customerId,
@@ -61,10 +105,57 @@ export default function CustomersPage() {
       birthdate: formData.birthdate || undefined,
     })
 
-    toast({
-      title: "Cliente creado",
-      description: `${formData.name} ha sido agregado exitosamente`,
-    })
+    // Create appointment if requested
+    if (formData.createAppointment && !formData.hasExistingAppointment) {
+      const selectedService = services.find((s) => s.name === formData.appointmentService)
+      const staffId = formData.appointmentStaff || `staff_${Date.now()}`
+      const appointmentId = `appointment_${Date.now()}`
+
+      // Convert date to YYYY-MM-DD format
+      let dateStr = formData.appointmentDate
+      if (dateStr.includes("/")) {
+        const [day, month, year] = dateStr.split("/")
+        dateStr = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`
+      }
+
+      // Convert time to 24-hour format if needed
+      let time24 = formData.appointmentTime
+      if (time24.includes("AM") || time24.includes("PM")) {
+        const [time, period] = time24.split(" ")
+        const [hours, minutes] = time.split(":")
+        let hour24 = parseInt(hours)
+        if (period === "PM" && hour24 !== 12) hour24 += 12
+        if (period === "AM" && hour24 === 12) hour24 = 0
+        time24 = `${hour24.toString().padStart(2, "0")}:${minutes}`
+      }
+
+      crmStore.addAppointment({
+        id: appointmentId,
+        customerId,
+        staffId,
+        serviceName: formData.appointmentService,
+        date: dateStr,
+        startTime: time24,
+        baseDuration: selectedService?.duration || 30,
+        inspirationImages: [],
+        notes: formData.appointmentNotes || undefined,
+      })
+
+      toast({
+        title: "Cliente y cita creados",
+        description: `${formData.name} ha sido agregado con una cita programada`,
+      })
+    } else if (formData.hasExistingAppointment) {
+      toast({
+        title: "Cliente creado",
+        description: `${formData.name} ha sido agregado. Puedes crear la cita manualmente después.`,
+      })
+    } else {
+      toast({
+        title: "Cliente creado",
+        description: `${formData.name} ha sido agregado exitosamente`,
+      })
+    }
 
     // Reset form
     setFormData({
@@ -72,9 +163,23 @@ export default function CustomersPage() {
       email: "",
       phone: "",
       birthdate: "",
+      createAppointment: false,
+      appointmentService: "",
+      appointmentDate: "",
+      appointmentTime: "",
+      appointmentStaff: "",
+      appointmentNotes: "",
+      hasExistingAppointment: false,
     })
     setIsCreateModalOpen(false)
   }
+
+  // Generate time slots
+  const timeSlots = [
+    "9:00 AM", "9:30 AM", "10:00 AM", "10:30 AM", "11:00 AM", "11:30 AM",
+    "12:00 PM", "12:30 PM", "1:00 PM", "1:30 PM", "2:00 PM", "2:30 PM",
+    "3:00 PM", "3:30 PM", "4:00 PM", "4:30 PM", "5:00 PM", "5:30 PM", "6:00 PM"
+  ]
 
   if (isLoading || !user) {
     return (
@@ -180,6 +285,145 @@ export default function CustomersPage() {
                 Permite recibir notificaciones cuando se acerque el cumpleaños del cliente
               </p>
             </div>
+
+            {/* Appointment Section */}
+            <div className="pt-4 border-t border-gray-200">
+              <div className="flex items-center justify-between mb-4">
+                <Label className="text-[#2C293F] font-semibold flex items-center gap-2">
+                  <Calendar className="w-4 h-4" />
+                  Crear cita para este cliente
+                </Label>
+                <Switch
+                  checked={formData.createAppointment || formData.hasExistingAppointment}
+                  onCheckedChange={(checked) => {
+                    setFormData({
+                      ...formData,
+                      createAppointment: checked,
+                      hasExistingAppointment: false,
+                    })
+                  }}
+                />
+              </div>
+
+              {(formData.createAppointment || formData.hasExistingAppointment) && (
+                <div className="space-y-4 mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                  <div className="flex items-center gap-3 mb-4">
+                    <Button
+                      type="button"
+                      variant={!formData.hasExistingAppointment ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setFormData({ ...formData, hasExistingAppointment: false, createAppointment: true })}
+                      className={!formData.hasExistingAppointment ? "bg-gradient-to-r from-[#AFA1FD] to-[#8B7FE8] text-white" : ""}
+                    >
+                      Crear nueva cita
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={formData.hasExistingAppointment ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setFormData({ ...formData, hasExistingAppointment: true, createAppointment: false })}
+                      className={formData.hasExistingAppointment ? "bg-gradient-to-r from-[#AFA1FD] to-[#8B7FE8] text-white" : ""}
+                    >
+                      Ya tiene cita (manual)
+                    </Button>
+                  </div>
+
+                  {!formData.hasExistingAppointment && (
+                    <>
+                      <div>
+                        <Label htmlFor="appointmentService" className="text-[#2C293F] font-semibold mb-2 block">
+                          Servicio <span className="text-red-500">*</span>
+                        </Label>
+                        <Select
+                          value={formData.appointmentService}
+                          onValueChange={(value) => setFormData({ ...formData, appointmentService: value })}
+                        >
+                          <SelectTrigger className="border-gray-300 focus:border-[#AFA1FD]">
+                            <SelectValue placeholder="Selecciona un servicio" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {services.map((service) => (
+                              <SelectItem key={service.id} value={service.name}>
+                                {service.name} - {service.duration} min
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div>
+                        <Label htmlFor="appointmentDate" className="text-[#2C293F] font-semibold mb-2 block">
+                          Fecha <span className="text-red-500">*</span>
+                        </Label>
+                        <Input
+                          id="appointmentDate"
+                          type="date"
+                          value={formData.appointmentDate}
+                          onChange={(e) => setFormData({ ...formData, appointmentDate: e.target.value })}
+                          className="border-gray-300 focus:border-[#AFA1FD]"
+                          min={new Date().toISOString().split("T")[0]}
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="appointmentTime" className="text-[#2C293F] font-semibold mb-2 block">
+                          Hora <span className="text-red-500">*</span>
+                        </Label>
+                        <Select
+                          value={formData.appointmentTime}
+                          onValueChange={(value) => setFormData({ ...formData, appointmentTime: value })}
+                        >
+                          <SelectTrigger className="border-gray-300 focus:border-[#AFA1FD]">
+                            <SelectValue placeholder="Selecciona una hora" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {timeSlots.map((time) => (
+                              <SelectItem key={time} value={time}>
+                                {time}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div>
+                        <Label htmlFor="appointmentStaff" className="text-[#2C293F] font-semibold mb-2 block">
+                          Manicurista (opcional)
+                        </Label>
+                        <Input
+                          id="appointmentStaff"
+                          placeholder="Nombre del manicurista"
+                          value={formData.appointmentStaff}
+                          onChange={(e) => setFormData({ ...formData, appointmentStaff: e.target.value })}
+                          className="border-gray-300 focus:border-[#AFA1FD]"
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="appointmentNotes" className="text-[#2C293F] font-semibold mb-2 block">
+                          Notas (opcional)
+                        </Label>
+                        <Input
+                          id="appointmentNotes"
+                          placeholder="Notas adicionales sobre la cita"
+                          value={formData.appointmentNotes}
+                          onChange={(e) => setFormData({ ...formData, appointmentNotes: e.target.value })}
+                          className="border-gray-300 focus:border-[#AFA1FD]"
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  {formData.hasExistingAppointment && (
+                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                      <p className="text-sm text-blue-900">
+                        El cliente será creado sin cita. Puedes crear la cita manualmente desde el calendario después.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
@@ -192,6 +436,13 @@ export default function CustomersPage() {
                   email: "",
                   phone: "",
                   birthdate: "",
+                  createAppointment: false,
+                  appointmentService: "",
+                  appointmentDate: "",
+                  appointmentTime: "",
+                  appointmentStaff: "",
+                  appointmentNotes: "",
+                  hasExistingAppointment: false,
                 })
               }}
             >

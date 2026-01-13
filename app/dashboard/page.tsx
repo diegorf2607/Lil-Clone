@@ -1003,6 +1003,9 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
   // Filter reservations
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
+  const [dateFilter, setDateFilter] = useState("all") // "all", "today", "week", "month", "custom"
+  const [customDateFrom, setCustomDateFrom] = useState("")
+  const [customDateTo, setCustomDateTo] = useState("")
   const [expandedReservation, setExpandedReservation] = useState<number | null>(null)
 
   const getLoyaltyLevel = (totalReservations: number) => {
@@ -1077,7 +1080,44 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
       res.clientEmail.toLowerCase().includes(searchQuery.toLowerCase()) ||
       res.clientPhone.toLowerCase().includes(searchQuery.toLowerCase()) // Added search by clientPhone
     const matchesStatus = statusFilter === "all" || res.status === statusFilter
-    return matchesSearch && matchesStatus
+    
+    // Date filter logic
+    let matchesDate = true
+    if (dateFilter !== "all") {
+      const reservationDate = new Date(res.date)
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      
+      if (dateFilter === "today") {
+        const resDateOnly = new Date(reservationDate)
+        resDateOnly.setHours(0, 0, 0, 0)
+        matchesDate = resDateOnly.getTime() === today.getTime()
+      } else if (dateFilter === "week") {
+        const weekAgo = new Date(today)
+        weekAgo.setDate(weekAgo.getDate() - 7)
+        matchesDate = reservationDate >= weekAgo && reservationDate <= today
+      } else if (dateFilter === "month") {
+        const monthAgo = new Date(today)
+        monthAgo.setMonth(monthAgo.getMonth() - 1)
+        matchesDate = reservationDate >= monthAgo && reservationDate <= today
+      } else if (dateFilter === "custom") {
+        if (customDateFrom && customDateTo) {
+          const fromDate = new Date(customDateFrom)
+          const toDate = new Date(customDateTo)
+          toDate.setHours(23, 59, 59, 999) // Include the entire end date
+          matchesDate = reservationDate >= fromDate && reservationDate <= toDate
+        } else if (customDateFrom) {
+          const fromDate = new Date(customDateFrom)
+          matchesDate = reservationDate >= fromDate
+        } else if (customDateTo) {
+          const toDate = new Date(customDateTo)
+          toDate.setHours(23, 59, 59, 999)
+          matchesDate = reservationDate <= toDate
+        }
+      }
+    }
+    
+    return matchesSearch && matchesStatus && matchesDate
   })
 
   const filteredServices = services.filter((service) => {
@@ -2243,7 +2283,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
                   animate={{ opacity: 1, y: 0 }}
                   className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 mb-6"
                 >
-                  <div className="grid md:grid-cols-3 gap-4">
+                  <div className="grid md:grid-cols-3 gap-4 mb-4">
                     <div className="md:col-span-2">
                       <Label htmlFor="searchReservations" className="text-[#2C293F] font-semibold mb-2 block">
                         Buscar
@@ -2273,6 +2313,71 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
                         </SelectContent>
                       </Select>
                     </div>
+                  </div>
+
+                  {/* Date Filter */}
+                  <div className="grid md:grid-cols-4 gap-4">
+                    <div>
+                      <Label htmlFor="dateFilter" className="text-[#2C293F] font-semibold mb-2 block">
+                        Fecha
+                      </Label>
+                      <Select value={dateFilter} onValueChange={setDateFilter}>
+                        <SelectTrigger className="border-gray-300 focus:border-[#AFA1FD]">
+                          <SelectValue placeholder="Todas las fechas" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todas las fechas</SelectItem>
+                          <SelectItem value="today">Hoy</SelectItem>
+                          <SelectItem value="week">Última semana</SelectItem>
+                          <SelectItem value="month">Último mes</SelectItem>
+                          <SelectItem value="custom">Rango personalizado</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {dateFilter === "custom" && (
+                      <>
+                        <div>
+                          <Label htmlFor="dateFrom" className="text-[#2C293F] font-semibold mb-2 block">
+                            Desde
+                          </Label>
+                          <Input
+                            id="dateFrom"
+                            type="date"
+                            value={customDateFrom}
+                            onChange={(e) => setCustomDateFrom(e.target.value)}
+                            className="border-gray-300 focus:border-[#AFA1FD]"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="dateTo" className="text-[#2C293F] font-semibold mb-2 block">
+                            Hasta
+                          </Label>
+                          <Input
+                            id="dateTo"
+                            type="date"
+                            value={customDateTo}
+                            onChange={(e) => setCustomDateTo(e.target.value)}
+                            className="border-gray-300 focus:border-[#AFA1FD]"
+                            min={customDateFrom}
+                          />
+                        </div>
+                        <div className="flex items-end">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setDateFilter("all")
+                              setCustomDateFrom("")
+                              setCustomDateTo("")
+                            }}
+                            className="w-full border-gray-300 hover:border-[#AFA1FD] hover:text-[#AFA1FD]"
+                          >
+                            Limpiar
+                          </Button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </motion.div>
 
