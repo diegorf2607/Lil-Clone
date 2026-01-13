@@ -9,6 +9,10 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Users, Briefcase, Check, Calendar, Clock, MapPin, ArrowLeft, Upload, X, ImageIcon } from "lucide-react"
 import { WhatsAppWidget } from "@/components/whatsapp-widget"
+import { WhatsAppHelpButton } from "@/components/whatsapp-help-button"
+import { BirthdateField } from "@/components/birthdate-field"
+import { InspirationUploader } from "@/components/inspiration-uploader"
+import type { InspirationImage } from "@/lib/types/crm"
 
 type UserRole = "client" | "business" | null
 type Step = "role" | "service" | "location" | "datetime" | "contact" | "confirmation"
@@ -117,9 +121,8 @@ export default function DemoPage() {
   const [selectedLocation, setSelectedLocation] = useState<string>("")
   const [selectedDate, setSelectedDate] = useState<string>("")
   const [selectedTime, setSelectedTime] = useState<string>("")
-  const [contactInfo, setContactInfo] = useState({ name: "", email: "", phone: "" })
-  const [inspirationImages, setInspirationImages] = useState<File[]>([])
-  const [inspirationImagePreviews, setInspirationImagePreviews] = useState<string[]>([])
+  const [contactInfo, setContactInfo] = useState({ name: "", email: "", phone: "", birthdate: "" })
+  const [inspirationImages, setInspirationImages] = useState<{ name: string; dataUrl: string }[]>([])
   const [comments, setComments] = useState<string>("")
   const [paymentMethod, setPaymentMethod] = useState<"online" | "transferencia" | null>(null)
   const [paymentCompleted, setPaymentCompleted] = useState(false)
@@ -193,6 +196,73 @@ export default function DemoPage() {
   }
 
   const handleConfirmBooking = () => {
+    // Save to localStorage using CRM store
+    if (typeof window !== "undefined") {
+      const crmData = JSON.parse(localStorage.getItem("beauty_crm_v1") || JSON.stringify({ customers: [], staff: [], appointments: [] }))
+      
+      // Generate IDs
+      const customerId = `customer_${Date.now()}`
+      const appointmentId = `appointment_${Date.now()}`
+      const staffId = `staff_${Date.now()}`
+
+      // Upsert customer
+      const existingCustomerIndex = (crmData.customers || []).findIndex(
+        (c: any) => c.phone === contactInfo.phone
+      )
+      const customer = {
+        id: customerId,
+        fullName: contactInfo.name,
+        phone: contactInfo.phone,
+        email: contactInfo.email,
+        birthdate: contactInfo.birthdate || undefined,
+      }
+      
+      if (existingCustomerIndex >= 0) {
+        crmData.customers[existingCustomerIndex] = { ...crmData.customers[existingCustomerIndex], ...customer }
+      } else {
+        crmData.customers = [...(crmData.customers || []), customer]
+      }
+
+      // Convert date from DD/MM/YYYY to YYYY-MM-DD if needed
+      let dateStr = selectedDate
+      if (dateStr.includes("/")) {
+        const [day, month, year] = dateStr.split("/")
+        dateStr = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`
+      }
+
+      // Convert time to 24-hour format if needed
+      let time24 = selectedTime
+      if (selectedTime.includes("AM") || selectedTime.includes("PM")) {
+        const [time, period] = selectedTime.split(" ")
+        const [hours, minutes] = time.split(":")
+        let hour24 = parseInt(hours)
+        if (period === "PM" && hour24 !== 12) hour24 += 12
+        if (period === "AM" && hour24 === 12) hour24 = 0
+        time24 = `${hour24.toString().padStart(2, "0")}:${minutes}`
+      }
+
+      // Add appointment
+      const appointment = {
+        id: appointmentId,
+        customerId,
+        staffId,
+        serviceName: selectedService,
+        date: dateStr,
+        startTime: time24,
+        baseDuration: 30, // Default duration
+        inspirationImages: inspirationImages,
+        notes: comments || undefined,
+      }
+      crmData.appointments = [...(crmData.appointments || []), appointment]
+      
+      // Ensure staff array exists
+      if (!crmData.staff) {
+        crmData.staff = []
+      }
+
+      localStorage.setItem("beauty_crm_v1", JSON.stringify(crmData))
+    }
+    
     setStep("success")
   }
 
@@ -214,27 +284,6 @@ export default function DemoPage() {
     return 0
   }
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || [])
-    if (files.length === 0) return
-
-    // Limit to 3 images
-    const newFiles = [...inspirationImages, ...files].slice(0, 3)
-
-    // Create preview URLs
-    const newPreviews = newFiles.map((file) => URL.createObjectURL(file))
-
-    setInspirationImages(newFiles)
-    setInspirationImagePreviews(newPreviews)
-  }
-
-  const handleRemoveImage = (index: number) => {
-    const newImages = inspirationImages.filter((_, i) => i !== index)
-    const newPreviews = inspirationImagePreviews.filter((_, i) => i !== index)
-
-    setInspirationImages(newImages)
-    setInspirationImagePreviews(newPreviews)
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#DFDBF1]/30 via-white to-[#AFA1FD]/20 relative overflow-hidden">
@@ -661,60 +710,22 @@ export default function DemoPage() {
                 </motion.div>
 
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
-                  <Label className="text-[#2C293F] font-bold text-lg mb-3 block flex items-center gap-2">
-                    <ImageIcon className="w-5 h-5 text-[#AFA1FD]" />
-                    Imágenes de inspiración (opcional)
-                  </Label>
-                  <p className="text-sm text-gray-600 mb-4">Sube hasta 3 imágenes de referencia para tu servicio</p>
+                  <BirthdateField
+                    value={contactInfo.birthdate}
+                    onChange={(value) => setContactInfo({ ...contactInfo, birthdate: value })}
+                    label="Fecha de nacimiento (opcional)"
+                    className="mb-7"
+                  />
+                </motion.div>
 
-                  {/* Image Previews */}
-                  {inspirationImagePreviews.length > 0 && (
-                    <div className="grid grid-cols-3 gap-4 mb-4">
-                      {inspirationImagePreviews.map((preview, index) => (
-                        <motion.div
-                          key={index}
-                          initial={{ opacity: 0, scale: 0.8 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          className="relative aspect-square rounded-xl overflow-hidden border-2 border-gray-200 group"
-                        >
-                          <img
-                            src={preview || "/placeholder.svg"}
-                            alt={`Inspiración ${index + 1}`}
-                            className="w-full h-full object-cover"
-                          />
-                          <button
-                            onClick={() => handleRemoveImage(index)}
-                            className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
-                            type="button"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </motion.div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Upload Button */}
-                  {inspirationImages.length < 3 && (
-                    <label
-                      htmlFor="inspiration-upload"
-                      className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-[#AFA1FD]/40 rounded-2xl cursor-pointer bg-gray-50 hover:bg-gray-100 transition-all"
-                    >
-                      <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                        <Upload className="w-8 h-8 text-[#AFA1FD] mb-2" />
-                        <p className="text-sm font-medium text-gray-600">Haz clic para subir imágenes</p>
-                        <p className="text-xs text-gray-500">PNG, JPG hasta 5MB ({inspirationImages.length}/3)</p>
-                      </div>
-                      <input
-                        id="inspiration-upload"
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        onChange={handleImageUpload}
-                        className="hidden"
-                      />
-                    </label>
-                  )}
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
+                  <InspirationUploader
+                    images={inspirationImages}
+                    onChange={(images) => setInspirationImages(images)}
+                    maxImages={3}
+                    label="Fotos de inspiración (opcional)"
+                    className="mb-7"
+                  />
                 </motion.div>
 
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
@@ -780,6 +791,7 @@ export default function DemoPage() {
       </main>
 
       <WhatsAppWidget businessPhone="+1 234 567 8900" message="Hola, me gustaría más información sobre los servicios" />
+      <WhatsAppHelpButton variant="floating" />
     </div>
   )
 }

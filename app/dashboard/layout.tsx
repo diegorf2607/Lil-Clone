@@ -6,7 +6,7 @@ import { useEffect, useState } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { motion, AnimatePresence } from "framer-motion"
-import { LayoutDashboard, Scissors, Calendar, ClipboardList, Settings, LogOut, Menu, X, Sparkles } from "lucide-react"
+import { LayoutDashboard, Scissors, Calendar, ClipboardList, Settings, LogOut, Menu, X, Sparkles, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 
@@ -15,6 +15,7 @@ const menuItems = [
   { id: "servicios", icon: Scissors, label: "Servicios", href: "/dashboard/servicios" },
   { id: "calendario", icon: Calendar, label: "Calendario", href: "/dashboard/calendario" },
   { id: "reservas", icon: ClipboardList, label: "Reservas", href: "/dashboard/reservas" },
+  { id: "customers", icon: Users, label: "Clientes", href: "/dashboard/customers" },
   { id: "configuracion", icon: Settings, label: "Configuración", href: "/dashboard/configuracion" },
 ]
 
@@ -93,7 +94,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <nav className="flex-1 px-3 py-6 space-y-2">
           {visibleMenuItems.map((item) => {
             const Icon = item.icon
-            const isActive = pathname === item.href || (item.href === "/dashboard" && pathname === "/dashboard")
+            const isActive =
+              pathname === item.href ||
+              (item.href === "/dashboard" && pathname === "/dashboard") ||
+              (item.id === "customers" && pathname?.includes("/customers"))
             return (
               <Link key={item.id} href={item.href}>
                 <motion.button

@@ -16,10 +16,14 @@ import Link from "next/link"
 import { toast } from "@/components/ui/use-toast" // Added toast
 import { useAuth } from "@/lib/auth-context"
 import { usePermissions } from "@/lib/use-permissions"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { useMemo } from "react"
+import { useLocalStorageStore } from "@/lib/hooks/use-local-storage-store"
+import { CustomersList } from "@/components/customers-list"
+import { DailyCalendarView } from "@/components/daily-calendar-view"
+import { StaffExtraMinutesForm } from "@/components/staff-extra-minutes-form"
 
-type AdminView = "dashboard" | "services" | "calendar" | "reservations" | "config"
+type AdminView = "dashboard" | "services" | "calendar" | "reservations" | "config" | "customers"
 
 interface SubService {
   id: string
@@ -127,7 +131,9 @@ interface Reservation {
 export default function AdminPage() {
   const { user, isLoading, logout } = useAuth()
   const router = useRouter()
+  const pathname = usePathname()
   const permissions = usePermissions()
+  const crmStore = useLocalStorageStore()
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -149,6 +155,16 @@ export default function AdminPage() {
   const [currentView, setCurrentView] = useState<AdminView>("dashboard")
   const [calendarView, setCalendarView] = useState<"week" | "day">("week")
   const [currentDate, setCurrentDate] = useState(new Date())
+
+  // Sync currentView with pathname
+  useEffect(() => {
+    if (pathname === "/dashboard") setCurrentView("dashboard")
+    else if (pathname === "/dashboard/services" || pathname === "/dashboard/servicios") setCurrentView("services")
+    else if (pathname === "/dashboard/calendar" || pathname === "/dashboard/calendario") setCurrentView("calendar")
+    else if (pathname === "/dashboard/reservations" || pathname === "/dashboard/reservas") setCurrentView("reservations")
+    else if (pathname === "/dashboard/config" || pathname === "/dashboard/configuracion") setCurrentView("config")
+    else if (pathname === "/dashboard/customers" || pathname === "/dashboard/clientes") setCurrentView("customers")
+  }, [pathname])
 
 
   const [hoveredPackId, setHoveredPackId] = useState<string | null>(null)
@@ -327,8 +343,40 @@ export default function AdminPage() {
       customDurations: {}, // Initialize customDurations for the new member
     }
     setStaffMembers([...staffMembers, newMember])
+    
+    // Also save to CRM store
+    if (crmStore.isLoaded) {
+      crmStore.upsertStaff({
+        id: newMember.id.toString(),
+        name: newMember.name,
+        extraMinutes: 0,
+      })
+    }
+    
     setNewStaffMember({ name: "", email: "", color: "#AFA1FD" })
   }
+
+  // Load staff from CRM store on mount
+  useEffect(() => {
+    if (crmStore.isLoaded && crmStore.data.staff.length > 0) {
+      // Sync staff members with CRM store
+      crmStore.data.staff.forEach((staff) => {
+        const existingStaff = staffMembers.find((s) => s.id.toString() === staff.id)
+        if (!existingStaff) {
+          // Add to staffMembers if not exists
+          const newMember: StaffMember = {
+            id: parseInt(staff.id) || Date.now(),
+            name: staff.name,
+            email: `${staff.name.toLowerCase().replace(/\s+/g, ".")}@example.com`,
+            color: "#AFA1FD",
+            workingHours: { ...businessHours },
+            customDurations: {},
+          }
+          setStaffMembers((prev) => [...prev, newMember])
+        }
+      })
+    }
+  }, [crmStore.isLoaded, crmStore.data.staff])
 
   const [appointments, setAppointments] = useState<CalendarAppointment[]>([
     // Example initial appointment data (can be expanded or removed)
@@ -560,6 +608,55 @@ export default function AdminPage() {
       }
 
       setReservations([...reservations, newReservation])
+
+      // Also save to CRM store
+      if (crmStore.isLoaded) {
+        // Get or create customer
+        const existingCustomer = crmStore.getCustomerByPhone(newAppointment.clientPhone || "")
+        const customerId = existingCustomer?.id || `customer_${Date.now()}`
+        
+        crmStore.upsertCustomer({
+          id: customerId,
+          fullName: newAppointment.client,
+          phone: newAppointment.clientPhone || "",
+          email: newAppointment.clientEmail,
+        })
+
+        // Get staff ID
+        const staffId = newAppointment.staffMember
+          ? staffMembers.find((s) => s.name === newAppointment.staffMember)?.id.toString() || `staff_${Date.now()}`
+          : `staff_${Date.now()}`
+
+        // Get date from selected time slot - convert from DD/MM to YYYY-MM-DD
+        const selectedDay = weekDays[selectedTimeSlot.day]
+        const dateStr = selectedDay.date // Format: "DD/MM"
+        const currentYear = new Date().getFullYear()
+        const [day, month] = dateStr.split("/")
+        const fullDate = `${currentYear}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`
+
+        // Convert time to 24-hour format if needed
+        let time24 = newAppointment.time
+        if (newAppointment.time.includes("AM") || newAppointment.time.includes("PM")) {
+          const [time, period] = newAppointment.time.split(" ")
+          const [hours, minutes] = time.split(":")
+          let hour24 = parseInt(hours)
+          if (period === "PM" && hour24 !== 12) hour24 += 12
+          if (period === "AM" && hour24 === 12) hour24 = 0
+          time24 = `${hour24.toString().padStart(2, "0")}:${minutes}`
+        }
+
+        crmStore.addAppointment({
+          id: appointment.id,
+          customerId,
+          staffId,
+          serviceName: newAppointment.service,
+          date: fullDate,
+          startTime: time24,
+          baseDuration: appointmentDuration,
+          inspirationImages: [],
+          notes: newAppointment.notes,
+        })
+      }
 
       toast({
         title: "Reserva creada correctamente ✨",
@@ -1696,9 +1793,17 @@ export default function AdminPage() {
                   </div>
                 </div>
 
-                <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden">
-                  {/* Desktop week view */}
-                  <div className="hidden md:block">
+                {calendarView === "day" && crmStore.isLoaded ? (
+                  <DailyCalendarView
+                    appointments={crmStore.data.appointments}
+                    staff={crmStore.data.staff}
+                    selectedDate={currentDate}
+                    onDateChange={setCurrentDate}
+                  />
+                ) : (
+                  <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden">
+                    {/* Desktop week view */}
+                    <div className="hidden md:block">
                     <div className="grid grid-cols-8 border-b-2 border-gray-200">
                       <div className="p-4 bg-gradient-to-br from-gray-50 to-gray-100 border-r border-gray-200">
                         <p className="text-sm font-bold text-[#2C293F]">Hora</p>
@@ -2084,6 +2189,8 @@ export default function AdminPage() {
                     </div>
                   </div>
                 </div>
+                  )}
+                )}
 
                 {permissions.canCreateReservations && (
                   <motion.button
@@ -2356,6 +2463,33 @@ export default function AdminPage() {
                   </p>
                 </motion.div>
                   </>
+                )}
+              </motion.div>
+            )}
+
+            {/* Customers View */}
+            {currentView === "customers" && (
+              <motion.div
+                key="customers"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="p-8"
+              >
+                <div className="mb-8">
+                  <h1 className="text-5xl font-bold bg-gradient-to-r from-[#2C293F] via-[#AFA1FD] to-[#2C293F] bg-clip-text text-transparent mb-3">
+                    Clientes
+                  </h1>
+                  <p className="text-[#AFA1FD] text-lg font-medium">
+                    Gestiona tus clientes y visualiza sus cumpleaños
+                  </p>
+                </div>
+
+                {crmStore.isLoaded && (
+                  <CustomersList
+                    customers={crmStore.data.customers}
+                    appointments={crmStore.data.appointments}
+                  />
                 )}
               </motion.div>
             )}
@@ -2681,6 +2815,21 @@ export default function AdminPage() {
                       </p>
                     </div>
                   </motion.div>
+
+                  {/* Staff Extra Minutes Configuration */}
+                  {crmStore.isLoaded && permissions.canEditConfig && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.6 }}
+                      className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100"
+                    >
+                      <StaffExtraMinutesForm
+                        staff={crmStore.data.staff}
+                        onUpdate={(staff) => crmStore.upsertStaff(staff)}
+                      />
+                    </motion.div>
+                  )}
                 </div>
                   </>
                 )}

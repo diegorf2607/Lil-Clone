@@ -8,6 +8,11 @@ import { Label } from "@/components/ui/label"
 import { Calendar, Clock, Check, Sparkles, ArrowLeft, ChevronDown, ChevronUp, Package, User, Layers, MapPin, Upload, X, ImageIcon } from 'lucide-react'
 import Link from "next/link"
 import { WhatsAppWidget } from "@/components/whatsapp-widget"
+import { WhatsAppHelpButton } from "@/components/whatsapp-help-button"
+import { BirthdateField } from "@/components/birthdate-field"
+import { InspirationUploader } from "@/components/inspiration-uploader"
+import { useLocalStorageStore } from "@/lib/hooks/use-local-storage-store"
+import type { InspirationImage } from "@/lib/types/crm"
 
 type BookingStep = "service" | "datetime" | "contact" | "confirm" | "success"
 
@@ -48,10 +53,11 @@ interface BookingData {
   name: string
   email: string
   phone: string
-  // Added inspirationImages field
-  inspirationImages: File[]
-  inspirationImagePreviews: string[]
+  birthdate: string // Added birthdate field
+  // Changed to use InspirationImage type
+  inspirationImages: InspirationImage[]
   comments: string
+  staffId?: string // Staff member ID if selected
 }
 
 interface BusinessInfo {
@@ -88,6 +94,7 @@ const timeSlots = [
 ]
 
 export default function PublicBookingPage({ params }: { params: { slug: string } }) {
+  const crmStore = useLocalStorageStore()
   const [step, setStep] = useState<BookingStep>("service")
   const [bookingData, setBookingData] = useState<BookingData>({
     service: null,
@@ -97,8 +104,8 @@ export default function PublicBookingPage({ params }: { params: { slug: string }
     name: "",
     email: "",
     phone: "",
+    birthdate: "",
     inspirationImages: [],
-    inspirationImagePreviews: [],
     comments: "",
   })
   const [brandColor, setBrandColor] = useState("#AFA1FD")
@@ -153,7 +160,54 @@ export default function PublicBookingPage({ params }: { params: { slug: string }
   }
 
   const handleConfirmBooking = () => {
+    if (!bookingData.service || !bookingData.date || !bookingData.time || !bookingData.name || !bookingData.phone) {
+      return
+    }
+
+    // Generate IDs
+    const customerId = `customer_${Date.now()}`
+    const appointmentId = `appointment_${Date.now()}`
+    const staffId = bookingData.staffId || `staff_${bookingData.service.id}`
+
+    // Upsert customer
+    crmStore.upsertCustomer({
+      id: customerId,
+      fullName: bookingData.name,
+      phone: bookingData.phone,
+      email: bookingData.email,
+      birthdate: bookingData.birthdate || undefined,
+    })
+
+    // Get base duration
+    const baseDuration = bookingData.service.duration || 30
+
+    // Convert time from "9:00 AM" to "09:00"
+    const time24 = convertTo24Hour(bookingData.time)
+
+    // Add appointment
+    crmStore.addAppointment({
+      id: appointmentId,
+      customerId,
+      staffId,
+      serviceName: bookingData.service.name,
+      date: bookingData.date,
+      startTime: time24,
+      baseDuration,
+      inspirationImages: bookingData.inspirationImages,
+      notes: bookingData.comments || undefined,
+    })
+
     setStep("success")
+  }
+
+  // Helper function to convert 12-hour to 24-hour format
+  const convertTo24Hour = (time12: string): string => {
+    const [time, period] = time12.split(" ")
+    const [hours, minutes] = time.split(":")
+    let hour24 = parseInt(hours)
+    if (period === "PM" && hour24 !== 12) hour24 += 12
+    if (period === "AM" && hour24 === 12) hour24 = 0
+    return `${hour24.toString().padStart(2, "0")}:${minutes}`
   }
 
   const handleBack = () => {
@@ -180,33 +234,6 @@ export default function PublicBookingPage({ params }: { params: { slug: string }
     return service.subservicios.reduce((total, sub) => total + sub.duracion, 0)
   }
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || [])
-    if (files.length === 0) return
-
-    // Limit to 3 images
-    const newFiles = [...bookingData.inspirationImages, ...files].slice(0, 3)
-    
-    // Create preview URLs
-    const newPreviews = newFiles.map((file) => URL.createObjectURL(file))
-    
-    setBookingData({
-      ...bookingData,
-      inspirationImages: newFiles,
-      inspirationImagePreviews: newPreviews,
-    })
-  }
-
-  const handleRemoveImage = (index: number) => {
-    const newImages = bookingData.inspirationImages.filter((_, i) => i !== index)
-    const newPreviews = bookingData.inspirationImagePreviews.filter((_, i) => i !== index)
-    
-    setBookingData({
-      ...bookingData,
-      inspirationImages: newImages,
-      inspirationImagePreviews: newPreviews,
-    })
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 relative overflow-hidden">
@@ -718,70 +745,25 @@ export default function PublicBookingPage({ params }: { params: { slug: string }
                 </motion.div>
 
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
-                  <Label className="text-gray-900 font-bold text-lg mb-3 block flex items-center gap-2">
-                    <ImageIcon className="w-5 h-5" style={{ color: brandColor }} />
-                    Imágenes de inspiración (opcional)
-                  </Label>
-                  <p className="text-sm text-gray-600 mb-4">
-                    Sube hasta 3 imágenes de referencia para tu servicio
-                  </p>
-
-                  {/* Image Previews */}
-                  {bookingData.inspirationImagePreviews.length > 0 && (
-                    <div className="grid grid-cols-3 gap-4 mb-4">
-                      {bookingData.inspirationImagePreviews.map((preview, index) => (
-                        <motion.div
-                          key={index}
-                          initial={{ opacity: 0, scale: 0.8 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          className="relative aspect-square rounded-xl overflow-hidden border-2 border-gray-200 group"
-                        >
-                          <img
-                            src={preview || "/placeholder.svg"}
-                            alt={`Inspiración ${index + 1}`}
-                            className="w-full h-full object-cover"
-                          />
-                          <button
-                            onClick={() => handleRemoveImage(index)}
-                            className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
-                            type="button"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </motion.div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Upload Button */}
-                  {bookingData.inspirationImages.length < 3 && (
-                    <label
-                      htmlFor="inspiration-upload"
-                      className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-2xl cursor-pointer bg-gray-50 hover:bg-gray-100 transition-all"
-                      style={{ borderColor: brandColor + "40" }}
-                    >
-                      <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                        <Upload className="w-8 h-8 mb-2" style={{ color: brandColor }} />
-                        <p className="text-sm font-medium text-gray-600">
-                          Haz clic para subir imágenes
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          PNG, JPG hasta 5MB ({bookingData.inspirationImages.length}/3)
-                        </p>
-                      </div>
-                      <input
-                        id="inspiration-upload"
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        onChange={handleImageUpload}
-                        className="hidden"
-                      />
-                    </label>
-                  )}
+                  <BirthdateField
+                    value={bookingData.birthdate}
+                    onChange={(value) => setBookingData({ ...bookingData, birthdate: value })}
+                    label="Fecha de nacimiento (opcional)"
+                    className="mb-7"
+                  />
                 </motion.div>
 
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
+                  <InspirationUploader
+                    images={bookingData.inspirationImages}
+                    onChange={(images) => setBookingData({ ...bookingData, inspirationImages: images })}
+                    maxImages={3}
+                    label="Fotos de inspiración (opcional)"
+                    className="mb-7"
+                  />
+                </motion.div>
+
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}>
                   <Label htmlFor="comments" className="text-gray-900 font-bold text-lg mb-3 block">
                     Comentarios o solicitudes especiales (opcional)
                   </Label>
@@ -912,17 +894,17 @@ export default function PublicBookingPage({ params }: { params: { slug: string }
                   <span className="text-gray-900 font-bold text-xl">{bookingData.name}</span>
                 </div>
 
-                {bookingData.inspirationImagePreviews.length > 0 && (
+                {bookingData.inspirationImages.length > 0 && (
                   <div className={`pt-6 ${bookingData.comments ? 'pb-6 border-b-2' : ''}`} style={{ borderColor: brandColor + "20" }}>
                     <span className="font-semibold text-lg mb-3 block" style={{ color: brandColor }}>
                       Imágenes de inspiración:
                     </span>
                     <div className="grid grid-cols-3 gap-3">
-                      {bookingData.inspirationImagePreviews.map((preview, index) => (
+                      {bookingData.inspirationImages.map((image, index) => (
                         <img
                           key={index}
-                          src={preview || "/placeholder.svg"}
-                          alt={`Inspiración ${index + 1}`}
+                          src={image.dataUrl}
+                          alt={image.name}
                           className="w-full aspect-square object-cover rounded-xl border-2 border-gray-200"
                         />
                       ))}
@@ -1037,6 +1019,7 @@ export default function PublicBookingPage({ params }: { params: { slug: string }
         phoneNumber="+1234567890" 
         businessName="Lilá - Reservas"
       />
+      <WhatsAppHelpButton variant="floating" />
     </div>
   )
 }
