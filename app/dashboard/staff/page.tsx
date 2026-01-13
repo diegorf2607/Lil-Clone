@@ -2838,6 +2838,7 @@ export default function AdminPage() {
                       </p>
                     </div>
                   </motion.div>
+                </div>
                   </>
                 )}
               </motion.div>
