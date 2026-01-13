@@ -2387,6 +2387,48 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
                     const statusConfig = getStatusConfig(reservation.status)
                     const isExpanded = expandedReservation === reservation.id
 
+                    // Find corresponding appointment in CRM store to get inspiration images
+                    const correspondingAppointment = crmStore.isLoaded
+                      ? crmStore.data.appointments.find((apt) => {
+                          // Match by customer phone, date, and time
+                          const customer = crmStore.data.customers.find((c) => c.phone === reservation.clientPhone)
+                          if (!customer) return false
+                          
+                          // Convert reservation date to match appointment date format (YYYY-MM-DD)
+                          const resDate = reservation.date // Format: YYYY-MM-DD or DD/MM/YYYY
+                          let normalizedResDate = resDate
+                          
+                          // Normalize dates for comparison
+                          if (resDate.includes("/")) {
+                            const [day, month, year] = resDate.split("/")
+                            normalizedResDate = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`
+                          }
+                          
+                          // Convert time formats for comparison
+                          let resTime = reservation.time // Format: "10:00 AM" or "HH:MM"
+                          let normalizedResTime = resTime
+                          
+                          if (resTime.includes("AM") || resTime.includes("PM")) {
+                            const [time, period] = resTime.split(" ")
+                            const [hours, minutes] = time.split(":")
+                            let hour24 = parseInt(hours)
+                            if (period === "PM" && hour24 !== 12) hour24 += 12
+                            if (period === "AM" && hour24 === 12) hour24 = 0
+                            normalizedResTime = `${hour24.toString().padStart(2, "0")}:${minutes}`
+                          }
+                          
+                          // Match by customer, date, time, and service
+                          return (
+                            apt.customerId === customer.id &&
+                            apt.date === normalizedResDate &&
+                            apt.startTime === normalizedResTime &&
+                            apt.serviceName === reservation.service
+                          )
+                        })
+                      : null
+
+                    const hasInspirationImages = correspondingAppointment?.inspirationImages && correspondingAppointment.inspirationImages.length > 0
+
                     return (
                       <motion.div
                         key={reservation.id}
@@ -2426,6 +2468,14 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
                                   <Scissors className="w-4 h-4 text-[#AFA1FD]" />
                                   <span className="text-gray-700">{reservation.service}</span>
                                 </div>
+                                {hasInspirationImages && (
+                                  <div className="flex items-center gap-1 text-[#AFA1FD]">
+                                    <ImageIcon className="w-4 h-4" />
+                                    <span className="text-xs font-semibold">
+                                      {correspondingAppointment?.inspirationImages.length} foto{correspondingAppointment?.inspirationImages.length !== 1 ? 's' : ''}
+                                    </span>
+                                  </div>
+                                )}
                                 <span
                                   className="px-3 py-1 rounded-lg text-xs font-semibold"
                                   style={{ backgroundColor: statusConfig.bgColor, color: statusConfig.color }}
@@ -2548,6 +2598,55 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
                                         )
                                       })}
                                     </div>
+                                  </div>
+                                )}
+
+                                {/* Inspiration Images Section */}
+                                {hasInspirationImages && correspondingAppointment && (
+                                  <div className="mt-6 pt-6 border-t border-gray-200">
+                                    <h4 className="text-lg font-bold text-[#2C293F] mb-4 flex items-center gap-2">
+                                      <ImageIcon className="w-5 h-5 text-[#AFA1FD]" />
+                                      Fotos de inspiración ({correspondingAppointment.inspirationImages.length})
+                                    </h4>
+                                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                      {correspondingAppointment.inspirationImages.map((image, imgIdx) => (
+                                        <motion.div
+                                          key={imgIdx}
+                                          initial={{ opacity: 0, scale: 0.9 }}
+                                          animate={{ opacity: 1, scale: 1 }}
+                                          transition={{ delay: imgIdx * 0.1 }}
+                                          className="relative group aspect-square rounded-lg overflow-hidden border-2 border-gray-200 hover:border-[#AFA1FD] transition-all cursor-pointer"
+                                          onClick={() => {
+                                            // Open image in new tab/window for full view
+                                            const newWindow = window.open()
+                                            if (newWindow) {
+                                              newWindow.document.write(`
+                                                <html>
+                                                  <head><title>${image.name}</title></head>
+                                                  <body style="margin:0;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#000;">
+                                                    <img src="${image.dataUrl}" style="max-width:100%;max-height:100vh;object-fit:contain;" alt="${image.name}" />
+                                                  </body>
+                                                </html>
+                                              `)
+                                            }
+                                          }}
+                                        >
+                                          <img
+                                            src={image.dataUrl}
+                                            alt={image.name}
+                                            className="w-full h-full object-cover"
+                                          />
+                                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                                            <p className="text-white text-xs font-semibold opacity-0 group-hover:opacity-100 transition-opacity px-2 text-center">
+                                              {image.name}
+                                            </p>
+                                          </div>
+                                        </motion.div>
+                                      ))}
+                                    </div>
+                                    <p className="text-xs text-gray-500 mt-3">
+                                      Haz clic en una imagen para verla en tamaño completo
+                                    </p>
                                   </div>
                                 )}
                               </div>
