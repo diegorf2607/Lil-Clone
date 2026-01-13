@@ -134,19 +134,6 @@ export function Hero() {
               >
                 <span className="relative z-10 flex items-center gap-2">Agenda una reunión</span>
               </Button>
-              <Link href="/demo">
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="relative overflow-hidden text-base px-8 shadow-lg transition-all duration-300 hover:scale-105 bg-white/90 backdrop-blur-sm hover:bg-white hover:shadow-xl border-0"
-                  style={{ borderColor: "#2C293F", color: "#2C293F" }}
-                >
-                  <span className="relative z-10 flex items-center gap-2">
-                    <Sparkles className="h-5 w-5" />
-                    Prueba nuestra demo
-                  </span>
-                </Button>
-              </Link>
             </motion.div>
 
             <motion.p

@@ -183,15 +183,16 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* Sign Up Link */}
-            <div className="text-center">
-              <p className="text-[#2C293F]/60">
-                ¿No tienes cuenta?{" "}
-                <Link href="#" className="text-[#AFA1FD] hover:text-[#2C293F] font-semibold transition-colors">
-                  Regístrate gratis
-                </Link>
-              </p>
-            </div>
+            {/* View Client Button */}
+            <Link href="/demo">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full h-12 border-[#AFA1FD]/30 text-[#AFA1FD] hover:bg-[#AFA1FD]/10 hover:border-[#AFA1FD] rounded-xl text-base font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]"
+              >
+                Ver Vista del Cliente
+              </Button>
+            </Link>
           </div>
 
           {/* Back to Home */}

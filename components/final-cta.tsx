@@ -134,17 +134,6 @@ export function FinalCTA() {
             >
               <span className="relative z-10 flex items-center gap-2">Agenda una reunión</span>
             </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              className="glass-strong border-2 border-primary/30 text-primary hover:bg-primary/10 text-base px-8 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 bg-transparent"
-              onClick={() => (window.location.href = "/demo")}
-            >
-              <span className="flex items-center gap-2">
-                <Sparkles className="h-5 w-5" />
-                Ver demo en vivo
-              </span>
-            </Button>
           </motion.div>
         </motion.div>
       </div>

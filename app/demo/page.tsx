@@ -7,15 +7,14 @@ import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Users, Briefcase, Check, Calendar, Clock, MapPin, ArrowLeft, Upload, X, ImageIcon } from "lucide-react"
+import { Check, Calendar, Clock, MapPin, ArrowLeft, Upload, X, ImageIcon } from "lucide-react"
 import { WhatsAppWidget } from "@/components/whatsapp-widget"
 import { WhatsAppHelpButton } from "@/components/whatsapp-help-button"
 import { BirthdateField } from "@/components/birthdate-field"
 import { InspirationUploader } from "@/components/inspiration-uploader"
 import type { InspirationImage } from "@/lib/types/crm"
 
-type UserRole = "client" | "business" | null
-type Step = "role" | "service" | "location" | "datetime" | "contact" | "confirmation"
+type Step = "service" | "location" | "datetime" | "contact" | "confirmation"
 
 interface Service {
   id: number
@@ -115,8 +114,7 @@ const locations = [
 ]
 
 export default function DemoPage() {
-  const [role, setRole] = useState<UserRole>(null)
-  const [step, setStep] = useState<Step>("role")
+  const [step, setStep] = useState<Step>("service")
   const [selectedService, setSelectedService] = useState<string>("")
   const [selectedLocation, setSelectedLocation] = useState<string>("")
   const [selectedDate, setSelectedDate] = useState<string>("")
@@ -131,15 +129,6 @@ export default function DemoPage() {
   const [cardExpiry, setCardExpiry] = useState("")
   const [cardCvc, setCardCvc] = useState("")
 
-  const handleRoleSelect = (selectedRole: UserRole) => {
-    setRole(selectedRole)
-    if (selectedRole === "client") {
-      setStep("service")
-    } else {
-      // Redirect to admin panel
-      window.location.href = "/admin"
-    }
-  }
 
   const handleServiceSelect = (service: string) => {
     setSelectedService(service)
@@ -267,19 +256,17 @@ export default function DemoPage() {
   }
 
   const handleBack = () => {
-    if (step === "service") setStep("role")
-    else if (step === "location") setStep("service")
+    if (step === "location") setStep("service")
     else if (step === "datetime") setStep("location")
     else if (step === "contact") setStep("datetime")
     else if (step === "confirmation") setStep("contact")
   }
 
   const getProgress = () => {
-    if (step === "role") return 0
-    if (step === "service") return 20
-    if (step === "location") return 40
-    if (step === "datetime") return 60
-    if (step === "contact") return 80
+    if (step === "service") return 0
+    if (step === "location") return 25
+    if (step === "datetime") return 50
+    if (step === "contact") return 75
     if (step === "confirmation") return 100
     return 0
   }
@@ -320,132 +307,47 @@ export default function DemoPage() {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-12 max-w-4xl relative z-10">
         <AnimatePresence mode="wait">
-          {/* Role Selection */}
-          {step === "role" && (
-            <motion.div
-              key="role"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="text-center"
-            >
-              <motion.h1
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 }}
-                className="text-6xl font-bold mb-4 bg-gradient-to-r from-[#2C293F] to-[#AFA1FD] bg-clip-text text-transparent"
-              >
-                Bienvenido a Lilá
-              </motion.h1>
-              <motion.p
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.2 }}
-                className="text-2xl text-[#AFA1FD] mb-16"
-              >
-                ¿Qué te trae hoy?
-              </motion.p>
-
-              <div className="grid md:grid-cols-2 gap-8 max-w-3xl mx-auto">
-                <motion.div
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.3 }}
-                  whileHover={{ scale: 1.03, y: -5 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => handleRoleSelect("client")}
-                  className="bg-white rounded-3xl p-10 shadow-xl border border-gray-100 hover:border-[#AFA1FD] hover:shadow-2xl transition-all cursor-pointer group relative overflow-hidden"
-                >
-                  <div className="absolute inset-0 bg-gradient-to-br from-[#AFA1FD]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                  <div className="relative">
-                    <motion.div
-                      whileHover={{ rotate: 360 }}
-                      transition={{ duration: 0.6 }}
-                      className="w-24 h-24 rounded-full bg-gradient-to-br from-[#DFDBF1] to-[#AFA1FD]/30 flex items-center justify-center mx-auto mb-6 shadow-lg"
-                    >
-                      <Users className="w-12 h-12 text-[#AFA1FD]" />
-                    </motion.div>
-                    <h2 className="text-3xl font-bold text-[#2C293F] mb-4">Soy Cliente</h2>
-                    <p className="text-[#AFA1FD] text-lg mb-8">Quiero reservar un servicio </p>
-                    <Button className="w-full bg-gradient-to-r from-[#AFA1FD] to-[#9890E8] hover:from-[#9890E8] hover:to-[#8880D8] text-white shadow-lg text-lg py-6">
-                      Continuar
-                    </Button>
-                  </div>
-                </motion.div>
-
-                <motion.div
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.4 }}
-                  whileHover={{ scale: 1.03, y: -5 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => handleRoleSelect("business")}
-                  className="bg-white rounded-3xl p-10 shadow-xl border border-gray-100 hover:border-[#AFA1FD] hover:shadow-2xl transition-all cursor-pointer group relative overflow-hidden"
-                >
-                  <div className="absolute inset-0 bg-gradient-to-br from-[#AFA1FD]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                  <div className="relative">
-                    <motion.div
-                      whileHover={{ rotate: 360 }}
-                      transition={{ duration: 0.6 }}
-                      className="w-24 h-24 rounded-full bg-gradient-to-br from-[#DFDBF1] to-[#AFA1FD]/30 flex items-center justify-center mx-auto mb-6 shadow-lg"
-                    >
-                      <Briefcase className="w-12 h-12 text-[#AFA1FD]" />
-                    </motion.div>
-                    <h2 className="text-3xl font-bold text-[#2C293F] mb-4">Soy Empresa</h2>
-                    <p className="text-[#AFA1FD] text-lg mb-8">Quiero gestionar negocio </p>
-                    <Button className="w-full bg-gradient-to-r from-[#AFA1FD] to-[#9890E8] hover:from-[#9890E8] hover:to-[#8880D8] text-white shadow-lg text-lg py-6">
-                      Continuar
-                    </Button>
-                  </div>
-                </motion.div>
-              </div>
-
-              <motion.p
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.5 }}
-                className="text-sm text-gray-500 mt-12"
-              >
-                Selecciona tu rol para acceder al sistema correspondiente
-              </motion.p>
-            </motion.div>
-          )}
-
           {/* Step Indicator */}
-          {step !== "role" && (
+          {(
             <motion.div
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
               className="flex justify-center gap-4 mb-16"
             >
-              {[1, 2, 3, 4, 5].map((num) => (
-                <motion.div
-                  key={num}
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ delay: num * 0.1 }}
-                  className="relative"
-                >
-                  <div
-                    className={`w-14 h-14 rounded-full flex items-center justify-center font-bold text-lg transition-all shadow-lg ${
-                      num === getProgress() / 20
-                        ? "bg-gradient-to-br from-[#AFA1FD] to-[#9890E8] text-white scale-110 ring-4 ring-[#AFA1FD]/30"
-                        : num < getProgress() / 20
-                          ? "bg-gradient-to-br from-[#AFA1FD] to-[#9890E8] text-white"
-                          : "bg-white text-[#AFA1FD] border-2 border-[#DFDBF1]"
-                    }`}
+              {[1, 2, 3, 4].map((num) => {
+                const stepProgress = getProgress()
+                const stepNum = num === 1 ? 0 : num === 2 ? 25 : num === 3 ? 50 : num === 4 ? 75 : 100
+                const isActive = stepNum === stepProgress
+                const isCompleted = stepNum < stepProgress
+                return (
+                  <motion.div
+                    key={num}
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: num * 0.1 }}
+                    className="relative"
                   >
-                    {num < getProgress() / 20 ? <Check className="w-7 h-7" /> : num}
-                  </div>
-                  {num < 5 && (
                     <div
-                      className={`absolute top-1/2 left-full w-8 h-1 -translate-y-1/2 transition-all ${
-                        num < getProgress() / 20 ? "bg-[#AFA1FD]" : "bg-[#DFDBF1]"
+                      className={`w-14 h-14 rounded-full flex items-center justify-center font-bold text-lg transition-all shadow-lg ${
+                        isActive
+                          ? "bg-gradient-to-br from-[#AFA1FD] to-[#9890E8] text-white scale-110 ring-4 ring-[#AFA1FD]/30"
+                          : isCompleted
+                            ? "bg-gradient-to-br from-[#AFA1FD] to-[#9890E8] text-white"
+                            : "bg-white text-[#AFA1FD] border-2 border-[#DFDBF1]"
                       }`}
-                    />
-                  )}
-                </motion.div>
-              ))}
+                    >
+                      {isCompleted ? <Check className="w-7 h-7" /> : num}
+                    </div>
+                    {num < 4 && (
+                      <div
+                        className={`absolute top-1/2 left-full w-8 h-1 -translate-y-1/2 transition-all ${
+                          isCompleted ? "bg-[#AFA1FD]" : "bg-[#DFDBF1]"
+                        }`}
+                      />
+                    )}
+                  </motion.div>
+                )
+              })}
             </motion.div>
           )}
 
@@ -515,7 +417,7 @@ export default function DemoPage() {
           )}
 
           {/* Location Selection */}
-          {step === "location" && role === "client" && (
+          {step === "location" && (
             <motion.div
               key="location"
               initial={{ opacity: 0, x: 20 }}
@@ -581,7 +483,7 @@ export default function DemoPage() {
           )}
 
           {/* Date & Time Selection */}
-          {step === "datetime" && role === "client" && (
+          {step === "datetime" && (
             <motion.div
               key="datetime"
               initial={{ opacity: 0, x: 20 }}
@@ -657,7 +559,7 @@ export default function DemoPage() {
           )}
 
           {/* Contact Information */}
-          {step === "contact" && role === "client" && (
+          {step === "contact" && (
             <motion.div
               key="contact"
               initial={{ opacity: 0, x: 20 }}
@@ -762,7 +664,7 @@ export default function DemoPage() {
             </motion.div>
           )}
 
-          {step === "confirmation" && role === "client" && (
+          {step === "confirmation" && (
             <motion.div
               key="confirmation"
               initial={{ opacity: 0, y: 20 }}
