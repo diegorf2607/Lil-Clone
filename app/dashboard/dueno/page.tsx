@@ -2512,6 +2512,8 @@ export default function AdminPage() {
                     Total de reservas: <span className="text-[#AFA1FD]">{filteredReservations.length}</span>
                   </p>
                 </motion.div>
+                  </>
+                )}
               </motion.div>
             )}
 
