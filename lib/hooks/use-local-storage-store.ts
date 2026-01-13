@@ -44,6 +44,43 @@ const sampleData: CRMData = {
       ],
       notes: "Cliente quiere diseño con flores",
     },
+    // Add appointments for history items
+    {
+      id: "appt-ana-history-1",
+      customerId: "customer-ana-garcia",
+      staffId: "staff-1",
+      serviceName: "Manicura Clásica",
+      date: "2023-10-15",
+      startTime: "10:00",
+      baseDuration: 60,
+      inspirationImages: [
+        {
+          name: "inspiracion-historia-1.jpg",
+          dataUrl: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjQwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjQwMCIgZmlsbD0iI0ZGQ0NDQyIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMjQiIGZpbGw9IndoaXRlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+SW1hZ2VuIEhpc3RvcmlhbCAxPC90ZXh0Pjwvc3ZnPg==",
+        },
+      ],
+      notes: "Reserva completada anteriormente",
+    },
+    {
+      id: "appt-ana-history-2",
+      customerId: "customer-ana-garcia",
+      staffId: "staff-1",
+      serviceName: "Pedicura Deluxe",
+      date: "2023-09-20",
+      startTime: "14:00",
+      baseDuration: 45,
+      inspirationImages: [
+        {
+          name: "inspiracion-historia-2.jpg",
+          dataUrl: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjQwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjQwMCIgZmlsbD0iI0NDRkZGRiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMjQiIGZpbGw9IndoaXRlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+SW1hZ2VuIEhpc3RvcmlhbCAyPC90ZXh0Pjwvc3ZnPg==",
+        },
+        {
+          name: "inspiracion-historia-3.jpg",
+          dataUrl: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjQwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjQwMCIgZmlsbD0iI0ZGRkNDQyIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMjQiIGZpbGw9IndoaXRlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+SW1hZ2VuIEhpc3RvcmlhbCAzPC90ZXh0Pjwvc3ZnPg==",
+        },
+      ],
+      notes: "Pedicura con diseño especial",
+    },
   ],
 }
 

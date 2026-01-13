@@ -2643,10 +2643,23 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
                                               if (!customer) return false
                                               
                                               // Convert date format for comparison
+                                              // History dates are in format "2023-10-15" (YYYY-MM-DD)
                                               let normalizedHistoryDate = item.date
+                                              // If date is in DD/MM/YYYY format, convert it
                                               if (item.date.includes("/")) {
                                                 const [day, month, year] = item.date.split("/")
                                                 normalizedHistoryDate = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`
+                                              }
+                                              // Ensure date is in YYYY-MM-DD format
+                                              if (!normalizedHistoryDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                                                // Try to parse and reformat
+                                                try {
+                                                  const dateObj = new Date(normalizedHistoryDate)
+                                                  normalizedHistoryDate = dateObj.toISOString().split('T')[0]
+                                                } catch (e) {
+                                                  // If parsing fails, skip this appointment
+                                                  return false
+                                                }
                                               }
                                               
                                               return (
