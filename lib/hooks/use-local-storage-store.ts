@@ -5,6 +5,48 @@ import type { CRMData, Customer, Staff, Appointment } from "@/lib/types/crm"
 
 const STORAGE_KEY = "beauty_crm_v1"
 
+// Sample data with inspiration images for demo purposes
+const sampleData: CRMData = {
+  customers: [
+    {
+      id: "customer-ana-garcia",
+      fullName: "Ana García",
+      phone: "+1 234 567 8900",
+      email: "ana.garcia@example.com",
+      birthdate: "1990-05-15",
+    },
+  ],
+  staff: [
+    {
+      id: "staff-1",
+      name: "María López",
+      extraMinutes: 5,
+    },
+  ],
+  appointments: [
+    {
+      id: "appt-ana-1",
+      customerId: "customer-ana-garcia",
+      staffId: "staff-1",
+      serviceName: "Manicura Clásica",
+      date: "2023-11-05",
+      startTime: "10:00",
+      baseDuration: 60,
+      inspirationImages: [
+        {
+          name: "inspiracion-1.jpg",
+          dataUrl: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjQwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjQwMCIgZmlsbD0iI0FGQTFGRCIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMjQiIGZpbGw9IndoaXRlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+SW1hZ2VuIGRlIEluc3BpcmFjacOzbiAxPC90ZXh0Pjwvc3ZnPg==",
+        },
+        {
+          name: "inspiracion-2.jpg",
+          dataUrl: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjQwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjQwMCIgZmlsbD0iIzhCN0ZFOEIiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjI0IiBmaWxsPSJ3aGl0ZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkltYWdlbiBkZSBJbnNwaXJhY2nDs24gMjwvdGV4dD48L3N2Zz4=",
+        },
+      ],
+      notes: "Cliente quiere diseño con flores",
+    },
+  ],
+}
+
 const defaultData: CRMData = {
   customers: [],
   staff: [],
@@ -23,7 +65,9 @@ export function useLocalStorageStore() {
         const parsed = JSON.parse(stored)
         setData(parsed)
       } else {
-        setData(defaultData)
+        // Initialize with sample data for demo purposes
+        setData(sampleData)
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(sampleData))
       }
     } catch (error) {
       console.error("Error loading CRM data from localStorage:", error)
