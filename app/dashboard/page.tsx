@@ -2635,26 +2635,101 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
                                     <div className="space-y-2">
                                       {reservation.history.map((item, idx) => {
                                         const historyStatus = getStatusConfig(item.status)
+                                        
+                                        // Find corresponding appointment in CRM store for this history item
+                                        const historyAppointment = crmStore.isLoaded
+                                          ? crmStore.data.appointments.find((apt) => {
+                                              const customer = crmStore.data.customers.find((c) => c.phone === reservation.clientPhone)
+                                              if (!customer) return false
+                                              
+                                              // Convert date format for comparison
+                                              let normalizedHistoryDate = item.date
+                                              if (item.date.includes("/")) {
+                                                const [day, month, year] = item.date.split("/")
+                                                normalizedHistoryDate = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`
+                                              }
+                                              
+                                              return (
+                                                apt.customerId === customer.id &&
+                                                apt.date === normalizedHistoryDate &&
+                                                apt.serviceName === item.service
+                                              )
+                                            })
+                                          : null
+                                        
+                                        const hasHistoryImages = historyAppointment?.inspirationImages && historyAppointment.inspirationImages.length > 0
+                                        
                                         return (
                                           <div
                                             key={idx}
-                                            className="flex items-center justify-between p-3 bg-white rounded-lg text-sm"
+                                            className="p-3 bg-white rounded-lg text-sm"
                                           >
-                                            <div className="flex items-center gap-3">
-                                              <div className="w-2 h-2 rounded-full bg-[#AFA1FD]" />
-                                              <span className="text-gray-700">{item.date}</span>
-                                              <span className="text-gray-500">•</span>
-                                              <span className="text-gray-700">{item.service}</span>
+                                            <div className="flex items-center justify-between">
+                                              <div className="flex items-center gap-3">
+                                                <div className="w-2 h-2 rounded-full bg-[#AFA1FD]" />
+                                                <span className="text-gray-700">{item.date}</span>
+                                                <span className="text-gray-500">•</span>
+                                                <span className="text-gray-700">{item.service}</span>
+                                                {hasHistoryImages && (
+                                                  <div className="flex items-center gap-1 text-[#AFA1FD]">
+                                                    <ImageIcon className="w-4 h-4" />
+                                                    <span className="text-xs font-semibold">
+                                                      {historyAppointment?.inspirationImages.length} foto{historyAppointment?.inspirationImages.length !== 1 ? 's' : ''}
+                                                    </span>
+                                                  </div>
+                                                )}
+                                              </div>
+                                              <span
+                                                className="px-2 py-1 rounded text-xs font-semibold"
+                                                style={{
+                                                  backgroundColor: historyStatus.bgColor,
+                                                  color: historyStatus.color,
+                                                }}
+                                              >
+                                                {historyStatus.label}
+                                              </span>
                                             </div>
-                                            <span
-                                              className="px-2 py-1 rounded text-xs font-semibold"
-                                              style={{
-                                                backgroundColor: historyStatus.bgColor,
-                                                color: historyStatus.color,
-                                              }}
-                                            >
-                                              {historyStatus.label}
-                                            </span>
+                                            
+                                            {/* Show images for this history item if they exist */}
+                                            {hasHistoryImages && historyAppointment && (
+                                              <div className="mt-3 pt-3 border-t border-gray-100">
+                                                <div className="grid grid-cols-3 gap-2">
+                                                  {historyAppointment.inspirationImages.map((image, imgIdx) => (
+                                                    <motion.div
+                                                      key={imgIdx}
+                                                      initial={{ opacity: 0, scale: 0.9 }}
+                                                      animate={{ opacity: 1, scale: 1 }}
+                                                      transition={{ delay: imgIdx * 0.05 }}
+                                                      className="relative group aspect-square rounded-lg overflow-hidden border border-gray-200 hover:border-[#AFA1FD] transition-all cursor-pointer"
+                                                      onClick={() => {
+                                                        const newWindow = window.open()
+                                                        if (newWindow) {
+                                                          newWindow.document.write(`
+                                                            <html>
+                                                              <head><title>${image.name}</title></head>
+                                                              <body style="margin:0;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#000;">
+                                                                <img src="${image.dataUrl}" style="max-width:100%;max-height:100vh;object-fit:contain;" alt="${image.name}" />
+                                                              </body>
+                                                            </html>
+                                                          `)
+                                                        }
+                                                      }}
+                                                    >
+                                                      <img
+                                                        src={image.dataUrl}
+                                                        alt={image.name}
+                                                        className="w-full h-full object-cover"
+                                                      />
+                                                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                                                        <p className="text-white text-xs font-semibold opacity-0 group-hover:opacity-100 transition-opacity px-2 text-center">
+                                                          {image.name}
+                                                        </p>
+                                                      </div>
+                                                    </motion.div>
+                                                  ))}
+                                                </div>
+                                              </div>
+                                            )}
                                           </div>
                                         )
                                       })}
