@@ -48,6 +48,15 @@ interface Service {
   metodoPago: "online" | "transferencia" | "no-aplica"
   esPack: boolean
   subservicios?: SubService[]
+  availableDays?: {
+    monday: boolean
+    tuesday: boolean
+    wednesday: boolean
+    thursday: boolean
+    friday: boolean
+    saturday: boolean
+    sunday: boolean
+  }
 }
 
 interface ServiceFormData {
@@ -61,6 +70,16 @@ interface ServiceFormData {
   montoAdelanto: string
   metodoPago: "online" | "transferencia" | "no-aplica"
   esPack: boolean
+  customDays: boolean
+  availableDays: {
+    monday: boolean
+    tuesday: boolean
+    wednesday: boolean
+    thursday: boolean
+    friday: boolean
+    saturday: boolean
+    sunday: boolean
+  }
 }
 
 interface StaffMember {
@@ -280,6 +299,16 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
     montoAdelanto: "",
     metodoPago: "no-aplica",
     esPack: false,
+    customDays: false,
+    availableDays: {
+      monday: true,
+      tuesday: true,
+      wednesday: true,
+      thursday: true,
+      friday: true,
+      saturday: true,
+      sunday: true,
+    },
   })
 
   const [subServices, setSubServices] = useState<SubService[]>([])
@@ -721,6 +750,16 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
       montoAdelanto: "",
       metodoPago: "no-aplica",
       esPack: false,
+      customDays: false,
+      availableDays: {
+        monday: true,
+        tuesday: true,
+        wednesday: true,
+        thursday: true,
+        friday: true,
+        saturday: true,
+        sunday: true,
+      },
     })
     setSubServices([])
     setNewSubService({
@@ -735,6 +774,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
 
   const handleEditService = (service: Service) => {
     setEditingServiceId(service.id)
+    const hasCustomDays = service.availableDays && !Object.values(service.availableDays).every((day) => day === true)
     setServiceFormData({
       name: service.name,
       description: service.description,
@@ -746,6 +786,16 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
       montoAdelanto: service.montoAdelanto.toString(),
       metodoPago: service.metodoPago,
       esPack: service.esPack,
+      customDays: hasCustomDays || false,
+      availableDays: service.availableDays || {
+        monday: true,
+        tuesday: true,
+        wednesday: true,
+        thursday: true,
+        friday: true,
+        saturday: true,
+        sunday: true,
+      },
     })
     setSubServices(service.subservicios || [])
     setIsServiceModalOpen(true)
@@ -829,6 +879,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
       metodoPago: serviceFormData.metodoPago,
       esPack: serviceFormData.esPack,
       subservicios: serviceFormData.esPack ? subServices : undefined,
+      availableDays: serviceFormData.customDays ? serviceFormData.availableDays : undefined,
     }
 
     if (editingServiceId) {
@@ -849,6 +900,16 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
       montoAdelanto: "",
       metodoPago: "no-aplica",
       esPack: false,
+      customDays: false,
+      availableDays: {
+        monday: true,
+        tuesday: true,
+        wednesday: true,
+        thursday: true,
+        friday: true,
+        saturday: true,
+        sunday: true,
+      },
     })
   }
 
@@ -3963,6 +4024,90 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
                     checked={serviceFormData.showPublic}
                     onCheckedChange={(checked) => setServiceFormData({ ...serviceFormData, showPublic: checked })}
                   />
+                </div>
+
+                {/* Available Days Configuration */}
+                <div className="border-t-2 border-gray-200 pt-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h3 className="text-lg font-bold text-[#2C293F] flex items-center gap-2">
+                        <Calendar className="w-5 h-5 text-[#AFA1FD]" />
+                        Días de atención
+                      </h3>
+                      <p className="text-sm text-gray-500 mt-1">
+                        Selecciona en qué días de la semana está disponible este servicio
+                      </p>
+                    </div>
+                    <Switch
+                      checked={serviceFormData.customDays}
+                      onCheckedChange={(checked) => {
+                        setServiceFormData({
+                          ...serviceFormData,
+                          customDays: checked,
+                          availableDays: checked
+                            ? serviceFormData.availableDays
+                            : {
+                                monday: true,
+                                tuesday: true,
+                                wednesday: true,
+                                thursday: true,
+                                friday: true,
+                                saturday: true,
+                                sunday: true,
+                              },
+                        })
+                      }}
+                    />
+                  </div>
+
+                  {serviceFormData.customDays && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4"
+                    >
+                      {[
+                        { key: "monday", label: "Lunes" },
+                        { key: "tuesday", label: "Martes" },
+                        { key: "wednesday", label: "Miércoles" },
+                        { key: "thursday", label: "Jueves" },
+                        { key: "friday", label: "Viernes" },
+                        { key: "saturday", label: "Sábado" },
+                        { key: "sunday", label: "Domingo" },
+                      ].map((day) => (
+                        <div
+                          key={day.key}
+                          className="flex items-center gap-2 p-3 bg-white rounded-lg border-2 border-gray-200 hover:border-[#AFA1FD] transition-colors cursor-pointer"
+                          onClick={() => {
+                            setServiceFormData({
+                              ...serviceFormData,
+                              availableDays: {
+                                ...serviceFormData.availableDays,
+                                [day.key]: !serviceFormData.availableDays[day.key as keyof typeof serviceFormData.availableDays],
+                              },
+                            })
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={serviceFormData.availableDays[day.key as keyof typeof serviceFormData.availableDays]}
+                            onChange={() => {}}
+                            className="w-4 h-4 text-[#AFA1FD] border-gray-300 rounded focus:ring-[#AFA1FD] cursor-pointer"
+                          />
+                          <Label className="text-sm font-medium text-[#2C293F] cursor-pointer">{day.label}</Label>
+                        </div>
+                      ))}
+                    </motion.div>
+                  )}
+
+                  {!serviceFormData.customDays && (
+                    <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                      <p className="text-sm text-blue-900">
+                        El servicio estará disponible todos los días de la semana
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
 
