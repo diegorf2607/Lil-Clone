@@ -6,9 +6,10 @@ import { useEffect, useState } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { motion, AnimatePresence } from "framer-motion"
-import { LayoutDashboard, Scissors, Calendar, ClipboardList, Settings, LogOut, Menu, X, Sparkles, Users } from "lucide-react"
+import { LayoutDashboard, Scissors, Calendar, ClipboardList, Settings, LogOut, Menu, X, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
+import Image from "next/image"
 
 const menuItems = [
   { id: "dashboard", icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
@@ -59,7 +60,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <div className="min-h-screen bg-gradient-to-br from-white via-[#DFDBF1]/20 to-[#AFA1FD]/10 flex">
       {/* Sidebar */}
       <aside
-        className={`fixed lg:relative z-40 h-screen bg-white/80 backdrop-blur-xl border-r border-[#AFA1FD]/20 transition-all duration-300 overflow-y-auto ${
+        className={`fixed z-40 h-screen bg-white/80 backdrop-blur-xl border-r border-[#AFA1FD]/20 transition-all duration-300 overflow-y-auto ${
           sidebarOpen ? "w-64" : "w-20"
         } ${!mobileMenuOpen && "hidden lg:flex"} flex-col`}
       >
@@ -67,10 +68,26 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="p-6 border-b border-[#AFA1FD]/20 flex items-center justify-between">
           {sidebarOpen && (
             <Link href="/" className="flex items-center gap-2">
-              <div className="w-10 h-10 bg-gradient-to-br from-[#AFA1FD] to-[#DFDBF1] rounded-xl flex items-center justify-center">
-                <Sparkles className="w-6 h-6 text-white" />
-              </div>
-              <span className="text-xl font-bold text-[#2C293F]">Lilá</span>
+              <Image 
+                src="/lila-logo.png" 
+                alt="Lilá" 
+                width={120} 
+                height={40} 
+                className="h-10 w-auto" 
+                priority 
+              />
+            </Link>
+          )}
+          {!sidebarOpen && (
+            <Link href="/" className="flex items-center justify-center">
+              <Image 
+                src="/lila-logo.png" 
+                alt="Lilá" 
+                width={40} 
+                height={40} 
+                className="h-10 w-auto" 
+                priority 
+              />
             </Link>
           )}
           <button
@@ -151,7 +168,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       )}
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto">
+      <main className={`flex-1 overflow-auto transition-all duration-300 ${sidebarOpen ? "lg:ml-64" : "lg:ml-20"}`}>
         <AnimatePresence mode="wait">
           <motion.div
             key={pathname}
