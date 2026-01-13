@@ -3,6 +3,7 @@
 import type React from "react"
 import { useState } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -70,12 +71,14 @@ export default function LoginPage() {
           className="mb-8"
         >
           <Link href="/">
-            <div className="flex items-center gap-2">
-              <div className="w-10 h-10 bg-gradient-to-br from-[#AFA1FD] to-[#DFDBF1] rounded-xl flex items-center justify-center">
-                <Sparkles className="w-6 h-6 text-white" />
-              </div>
-              <span className="text-2xl font-bold text-[#2C293F]">Lilá</span>
-            </div>
+            <Image 
+              src="/lila-logo.png" 
+              alt="Lilá" 
+              width={120} 
+              height={40} 
+              className="h-10 w-auto" 
+              priority 
+            />
           </Link>
         </motion.div>
 
@@ -93,12 +96,19 @@ export default function LoginPage() {
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 transition={{ duration: 0.5, delay: 0.4, type: "spring" }}
-                className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-[#AFA1FD] to-[#DFDBF1] rounded-2xl mb-4"
+                className="inline-flex items-center justify-center mb-4"
               >
-                <Sparkles className="w-8 h-8 text-white" />
+                <Image 
+                  src="/lila-logo.png" 
+                  alt="Lilá" 
+                  width={100} 
+                  height={32} 
+                  className="h-12 w-auto" 
+                  priority 
+                />
               </motion.div>
               <h1 className="text-3xl font-bold text-[#2C293F] mb-2">Bienvenido de vuelta</h1>
-              <p className="text-[#2C293F]/60">Ingresa a tu cuenta de Lilá</p>
+              <p className="text-[#2C293F]/60">Ingresa a tu cuenta</p>
             </div>
 
             {/* Form */}
