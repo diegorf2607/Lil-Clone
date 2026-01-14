@@ -86,23 +86,27 @@ export function useCRMStore() {
           })
         } else {
           // Fallback to localStorage
-          const stored = localStorage.getItem("beauty_crm_v1")
-          if (stored) {
-            const parsed = JSON.parse(stored)
-            setData(parsed)
+          if (typeof window !== "undefined") {
+            const stored = localStorage.getItem("beauty_crm_v1")
+            if (stored) {
+              const parsed = JSON.parse(stored)
+              setData(parsed)
+            }
           }
         }
       } catch (error) {
         console.error("Error loading CRM data:", error)
         // Fallback to localStorage on error
-        try {
-          const stored = localStorage.getItem("beauty_crm_v1")
-          if (stored) {
-            const parsed = JSON.parse(stored)
-            setData(parsed)
+        if (typeof window !== "undefined") {
+          try {
+            const stored = localStorage.getItem("beauty_crm_v1")
+            if (stored) {
+              const parsed = JSON.parse(stored)
+              setData(parsed)
+            }
+          } catch (e) {
+            console.error("Error loading from localStorage:", e)
           }
-        } catch (e) {
-          console.error("Error loading from localStorage:", e)
         }
       } finally {
         setIsLoaded(true)
@@ -177,7 +181,9 @@ export function useCRMStore() {
               updatedCustomers = [...prev.customers, customer]
             }
             const newData = { ...prev, customers: updatedCustomers }
-            localStorage.setItem("beauty_crm_v1", JSON.stringify(newData))
+            if (typeof window !== "undefined") {
+              localStorage.setItem("beauty_crm_v1", JSON.stringify(newData))
+            }
             return newData
           })
         }
@@ -199,7 +205,7 @@ export function useCRMStore() {
         })
       }
     },
-    [useSupabase]
+    [useSupabase, setReloadTrigger]
   )
 
   const getCustomerByPhone = useCallback(
@@ -315,7 +321,7 @@ export function useCRMStore() {
         })
       }
     },
-    [useSupabase]
+    [useSupabase, setReloadTrigger]
   )
 
   const getStaffById = useCallback(
@@ -381,7 +387,7 @@ export function useCRMStore() {
         })
       }
     },
-    [useSupabase]
+    [useSupabase, setReloadTrigger]
   )
 
   const getAppointmentsByDate = useCallback(
