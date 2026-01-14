@@ -858,12 +858,15 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
 
   // Calculate upcoming appointments from CRM store (today and future)
   const upcomingAppointments = useMemo(() => {
-    if (!crmStore.isLoaded) return []
+    if (!crmStore.isLoaded || !crmStore.data) return []
     
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     
-    return crmStore.data.appointments
+    const appointments = crmStore.data.appointments || []
+    const customers = crmStore.data.customers || []
+    
+    return appointments
       .filter((apt) => {
         const aptDate = new Date(apt.date + "T" + apt.startTime)
         aptDate.setHours(0, 0, 0, 0)
@@ -876,7 +879,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
       })
       .slice(0, 5) // Get top 5 upcoming
       .map((apt) => {
-        const customer = crmStore.data.customers.find((c) => c.id === apt.customerId)
+        const customer = customers.find((c) => c.id === apt.customerId)
         const [hours, minutes] = apt.startTime.split(":")
         const hour24 = parseInt(hours)
         const hour12 = hour24 === 0 ? 12 : hour24 > 12 ? hour24 - 12 : hour24
@@ -891,7 +894,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
           status: "Confirmada",
         }
       })
-  }, [crmStore.isLoaded, crmStore.data.appointments, crmStore.data.customers])
+  }, [crmStore.isLoaded, crmStore.data])
 
   // Calculate recent reservations from reservations state
   const recentReservations = useMemo(() => {
@@ -1097,52 +1100,58 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
       }).filter((res) => res !== null) as Reservation[]
 
       setReservations(newReservations)
-    } else if (crmStore.isLoaded && crmStore.data.appointments.length === 0) {
+    } else if (crmStore.isLoaded && crmStore.data && (!crmStore.data.appointments || crmStore.data.appointments.length === 0)) {
       // No appointments yet, keep empty array
       setReservations([])
     }
-  }, [crmStore.isLoaded, crmStore.data.appointments, crmStore.data.customers])
+  }, [crmStore.isLoaded, crmStore.data])
 
   // Sync calendar appointments from CRM store
   useEffect(() => {
-    if (crmStore.isLoaded && crmStore.data.appointments.length > 0) {
-      const calendarAppointments: CalendarAppointment[] = crmStore.data.appointments.map((apt) => {
-        const customer = crmStore.data.customers.find((c) => c.id === apt.customerId)
-        const staff = crmStore.data.staff.find((s) => s.id === apt.staffId)
-        
-        // Convert date to day of week (0 = Sunday, 6 = Saturday)
-        const aptDate = new Date(apt.date)
-        const dayOfWeek = aptDate.getDay()
-        
-        // Determine status based on date
-        const now = new Date()
-        let status: "confirmed" | "pending" | "completed" | "cancelled" = "confirmed"
-        if (aptDate < now) {
-          status = "completed"
-        }
-        
-        return {
-          id: apt.id,
-          day: dayOfWeek,
-          time: apt.startTime,
-          client: customer?.fullName || "Cliente desconocido",
-          clientEmail: customer?.email || "",
-          clientPhone: customer?.phone || "",
-          service: apt.serviceName,
-          staffMember: staff?.name || "",
-          status: status,
-          isManual: false,
-          paymentStatus: "pending",
-          paymentMethod: "online",
-          duration: services.find((s) => s.name === apt.serviceName)?.duration || apt.baseDuration || 30,
-        }
-      })
+    if (crmStore.isLoaded && crmStore.data) {
+      const appointments = crmStore.data.appointments || []
+      const customers = crmStore.data.customers || []
+      const staff = crmStore.data.staff || []
       
-      setAppointments(calendarAppointments)
-    } else if (crmStore.isLoaded && crmStore.data.appointments.length === 0) {
-      setAppointments([])
+      if (appointments.length > 0) {
+        const calendarAppointments: CalendarAppointment[] = appointments.map((apt) => {
+          const customer = customers.find((c) => c.id === apt.customerId)
+          const staffMember = staff.find((s) => s.id === apt.staffId)
+          
+          // Convert date to day of week (0 = Sunday, 6 = Saturday)
+          const aptDate = new Date(apt.date)
+          const dayOfWeek = aptDate.getDay()
+          
+          // Determine status based on date
+          const now = new Date()
+          let status: "confirmed" | "pending" | "completed" | "cancelled" = "confirmed"
+          if (aptDate < now) {
+            status = "completed"
+          }
+          
+          return {
+            id: apt.id,
+            day: dayOfWeek,
+            time: apt.startTime,
+            client: customer?.fullName || "Cliente desconocido",
+            clientEmail: customer?.email || "",
+            clientPhone: customer?.phone || "",
+            service: apt.serviceName,
+            staffMember: staffMember?.name || "",
+            status: status,
+            isManual: false,
+            paymentStatus: "pending",
+            paymentMethod: "online",
+            duration: services.find((s) => s.name === apt.serviceName)?.duration || apt.baseDuration || 30,
+          }
+        })
+        
+        setAppointments(calendarAppointments)
+      } else {
+        setAppointments([])
+      }
     }
-  }, [crmStore.isLoaded, crmStore.data.appointments, crmStore.data.customers, crmStore.data.staff, services])
+  }, [crmStore.isLoaded, crmStore.data, services])
 
   const handleSaveBusinessInfo = async () => {
     // Validate required fields

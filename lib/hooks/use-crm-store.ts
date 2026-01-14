@@ -200,7 +200,9 @@ export function useCRMStore() {
             updatedCustomers = [...prev.customers, customer]
           }
           const newData = { ...prev, customers: updatedCustomers }
-          localStorage.setItem("beauty_crm_v1", JSON.stringify(newData))
+          if (typeof window !== "undefined") {
+            localStorage.setItem("beauty_crm_v1", JSON.stringify(newData))
+          }
           return newData
         })
       }
@@ -299,7 +301,9 @@ export function useCRMStore() {
               updatedStaff = [...prev.staff, staff]
             }
             const newData = { ...prev, staff: updatedStaff }
-            localStorage.setItem("beauty_crm_v1", JSON.stringify(newData))
+            if (typeof window !== "undefined") {
+              localStorage.setItem("beauty_crm_v1", JSON.stringify(newData))
+            }
             return newData
           })
         }
@@ -316,7 +320,9 @@ export function useCRMStore() {
             updatedStaff = [...prev.staff, staff]
           }
           const newData = { ...prev, staff: updatedStaff }
-          localStorage.setItem("beauty_crm_v1", JSON.stringify(newData))
+          if (typeof window !== "undefined") {
+            localStorage.setItem("beauty_crm_v1", JSON.stringify(newData))
+          }
           return newData
         })
       }
@@ -370,7 +376,9 @@ export function useCRMStore() {
               ...prev,
               appointments: [...prev.appointments, appointment],
             }
-            localStorage.setItem("beauty_crm_v1", JSON.stringify(newData))
+            if (typeof window !== "undefined") {
+              localStorage.setItem("beauty_crm_v1", JSON.stringify(newData))
+            }
             return newData
           })
         }
@@ -382,7 +390,9 @@ export function useCRMStore() {
             ...prev,
             appointments: [...prev.appointments, appointment],
           }
-          localStorage.setItem("beauty_crm_v1", JSON.stringify(newData))
+          if (typeof window !== "undefined") {
+            localStorage.setItem("beauty_crm_v1", JSON.stringify(newData))
+          }
           return newData
         })
       }
