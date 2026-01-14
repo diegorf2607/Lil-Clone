@@ -1026,20 +1026,24 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
 
   // Sync reservations from CRM store appointments
   useEffect(() => {
-    if (crmStore.isLoaded && crmStore.data.appointments.length > 0) {
-      // Group appointments by customer to calculate totalReservations and history
-      const customerAppointments = new Map<string, typeof crmStore.data.appointments>()
+    if (crmStore.isLoaded && crmStore.data) {
+      const appointments = crmStore.data.appointments || []
+      const customers = crmStore.data.customers || []
       
-      crmStore.data.appointments.forEach((apt) => {
-        if (!customerAppointments.has(apt.customerId)) {
-          customerAppointments.set(apt.customerId, [])
-        }
-        customerAppointments.get(apt.customerId)!.push(apt)
-      })
+      if (appointments.length > 0) {
+        // Group appointments by customer to calculate totalReservations and history
+        const customerAppointments = new Map<string, typeof appointments>()
+        
+        appointments.forEach((apt) => {
+          if (!customerAppointments.has(apt.customerId)) {
+            customerAppointments.set(apt.customerId, [])
+          }
+          customerAppointments.get(apt.customerId)!.push(apt)
+        })
 
-      // Convert appointments to reservations
-      const newReservations: Reservation[] = crmStore.data.appointments.map((apt) => {
-        const customer = crmStore.data.customers.find((c) => c.id === apt.customerId)
+        // Convert appointments to reservations
+        const newReservations: Reservation[] = appointments.map((apt) => {
+          const customer = customers.find((c) => c.id === apt.customerId)
         if (!customer) return null
 
         // Get all appointments for this customer
