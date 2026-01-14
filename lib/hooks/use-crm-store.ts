@@ -132,14 +132,19 @@ export function useCRMStore() {
       try {
         if (useSupabase) {
           const supabase = createClient()
-          const { data: existingCustomer } = await supabase
+          const { data: existingCustomer, error: findError } = await supabase
             .from("customers")
             .select("id")
             .eq("phone", customer.phone)
-            .single()
+            .maybeSingle()
+
+          if (findError) {
+            console.error("Error finding customer:", findError)
+            throw findError
+          }
 
           if (existingCustomer) {
-            await supabase
+            const { error: updateError } = await supabase
               .from("customers")
               .update({
                 full_name: customer.fullName,
@@ -147,6 +152,11 @@ export function useCRMStore() {
                 birthdate: customer.birthdate || null,
               })
               .eq("id", existingCustomer.id)
+
+            if (updateError) {
+              console.error("Error updating customer:", updateError)
+              throw updateError
+            }
           } else {
             // Don't pass id - let Supabase generate UUID automatically
             const { data: insertedCustomer, error: insertError } = await supabase
