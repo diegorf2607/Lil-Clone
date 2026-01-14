@@ -162,24 +162,9 @@ export function useCRMStore() {
             }
           }
 
-          // Reload from Supabase
-          const { data: customersData } = await supabase
-            .from("customers")
-            .select("*")
-            .order("created_at", { ascending: false })
-
-          if (customersData) {
-            setData((prev) => ({
-              ...prev,
-              customers: customersData.map((c) => ({
-                id: c.id,
-                fullName: c.full_name,
-                phone: c.phone,
-                email: c.email || undefined,
-                birthdate: c.birthdate || undefined,
-              })),
-            }))
-          }
+          // Trigger reload to refresh all data from Supabase
+          // This ensures all data is in sync
+          setReloadTrigger((prev) => prev + 1)
         } else {
           // Fallback to localStorage
           setData((prev) => {

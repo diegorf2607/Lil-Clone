@@ -64,7 +64,7 @@ export default function CustomersPage() {
     }
   }, [])
 
-  const handleCreateCustomer = () => {
+  const handleCreateCustomer = async () => {
     if (!formData.name || !formData.phone) {
       toast({
         title: "Campos requeridos",
@@ -96,82 +96,104 @@ export default function CustomersPage() {
       }
     }
 
-    const customerId = `customer_${Date.now()}`
-    crmStore.upsertCustomer({
-      id: customerId,
-      fullName: formData.name,
-      phone: formData.phone,
-      email: formData.email || undefined,
-      birthdate: formData.birthdate || undefined,
-    })
+    try {
+      // Create customer first
+      await crmStore.upsertCustomer({
+        id: `temp_${Date.now()}`,
+        fullName: formData.name,
+        phone: formData.phone,
+        email: formData.email || undefined,
+        birthdate: formData.birthdate || undefined,
+      })
 
-    // Create appointment if requested
-    if (formData.createAppointment && !formData.hasExistingAppointment) {
-      const selectedService = services.find((s) => s.name === formData.appointmentService)
-      const staffId = formData.appointmentStaff || `staff_${Date.now()}`
-      const appointmentId = `appointment_${Date.now()}`
+      // Wait a bit for the customer to be saved and get the ID
+      await new Promise(resolve => setTimeout(resolve, 200))
+      
+      // Get the customer ID after upsert
+      const customer = crmStore.getCustomerByPhone(formData.phone)
+      if (!customer || !customer.id) {
+        throw new Error("No se pudo obtener el ID del cliente después de guardar")
+      }
+      const customerId = customer.id
 
-      // Convert date to YYYY-MM-DD format
-      let dateStr = formData.appointmentDate
-      if (dateStr.includes("/")) {
-        const [day, month, year] = dateStr.split("/")
-        dateStr = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`
+      // Create appointment if requested
+      if (formData.createAppointment && !formData.hasExistingAppointment) {
+        const selectedService = services.find((s) => s.name === formData.appointmentService)
+        const staffId = formData.appointmentStaff || `staff_${Date.now()}`
+
+        // Convert date to YYYY-MM-DD format
+        let dateStr = formData.appointmentDate
+        if (dateStr.includes("/")) {
+          const [day, month, year] = dateStr.split("/")
+          dateStr = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`
+        }
+
+        // Convert time to 24-hour format if needed
+        let time24 = formData.appointmentTime
+        if (time24.includes("AM") || time24.includes("PM")) {
+          const [time, period] = time24.split(" ")
+          const [hours, minutes] = time.split(":")
+          let hour24 = parseInt(hours)
+          if (period === "PM" && hour24 !== 12) hour24 += 12
+          if (period === "AM" && hour24 === 12) hour24 = 0
+          time24 = `${hour24.toString().padStart(2, "0")}:${minutes}`
+        }
+
+        await crmStore.addAppointment({
+          id: `temp_${Date.now()}`,
+          customerId,
+          staffId,
+          serviceName: formData.appointmentService,
+          date: dateStr,
+          startTime: time24,
+          baseDuration: selectedService?.duration || 30,
+          inspirationImages: [],
+          notes: formData.appointmentNotes || undefined,
+        })
+
+        toast({
+          title: "Cliente y cita creados",
+          description: `${formData.name} ha sido agregado con una cita programada`,
+        })
+      } else if (formData.hasExistingAppointment) {
+        toast({
+          title: "Cliente creado",
+          description: `${formData.name} ha sido agregado. Puedes crear la cita manualmente después.`,
+        })
+      } else {
+        toast({
+          title: "Cliente creado",
+          description: `${formData.name} ha sido agregado exitosamente`,
+        })
       }
 
-      // Convert time to 24-hour format if needed
-      let time24 = formData.appointmentTime
-      if (time24.includes("AM") || time24.includes("PM")) {
-        const [time, period] = time24.split(" ")
-        const [hours, minutes] = time.split(":")
-        let hour24 = parseInt(hours)
-        if (period === "PM" && hour24 !== 12) hour24 += 12
-        if (period === "AM" && hour24 === 12) hour24 = 0
-        time24 = `${hour24.toString().padStart(2, "0")}:${minutes}`
-      }
+      // Reload CRM store to ensure data is synced
+      await new Promise(resolve => setTimeout(resolve, 300))
+      crmStore.reload()
 
-      crmStore.addAppointment({
-        id: appointmentId,
-        customerId,
-        staffId,
-        serviceName: formData.appointmentService,
-        date: dateStr,
-        startTime: time24,
-        baseDuration: selectedService?.duration || 30,
-        inspirationImages: [],
-        notes: formData.appointmentNotes || undefined,
+      // Reset form
+      setFormData({
+        name: "",
+        email: "",
+        phone: "",
+        birthdate: "",
+        createAppointment: false,
+        appointmentService: "",
+        appointmentDate: "",
+        appointmentTime: "",
+        appointmentStaff: "",
+        appointmentNotes: "",
+        hasExistingAppointment: false,
       })
-
+      setIsCreateModalOpen(false)
+    } catch (error) {
+      console.error("Error creating customer:", error)
       toast({
-        title: "Cliente y cita creados",
-        description: `${formData.name} ha sido agregado con una cita programada`,
-      })
-    } else if (formData.hasExistingAppointment) {
-      toast({
-        title: "Cliente creado",
-        description: `${formData.name} ha sido agregado. Puedes crear la cita manualmente después.`,
-      })
-    } else {
-      toast({
-        title: "Cliente creado",
-        description: `${formData.name} ha sido agregado exitosamente`,
+        title: "Error",
+        description: "Hubo un error al crear el cliente. Por favor intenta de nuevo.",
+        variant: "destructive",
       })
     }
-
-    // Reset form
-    setFormData({
-      name: "",
-      email: "",
-      phone: "",
-      birthdate: "",
-      createAppointment: false,
-      appointmentService: "",
-      appointmentDate: "",
-      appointmentTime: "",
-      appointmentStaff: "",
-      appointmentNotes: "",
-      hasExistingAppointment: false,
-    })
-    setIsCreateModalOpen(false)
   }
 
   // Generate time slots
