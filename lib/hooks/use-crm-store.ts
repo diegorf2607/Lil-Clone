@@ -108,8 +108,8 @@ export function useCRMStore() {
       }
     }
 
-    loadData()
-  }, [useSupabase, reloadTrigger])
+    reloadData()
+  }, [useSupabase, reloadTrigger, reloadData])
 
   // Expose reload function
   const reload = useCallback(() => {
