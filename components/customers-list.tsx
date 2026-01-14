@@ -143,7 +143,6 @@ export function CustomersList({ customers, appointments, onCustomerClick, onDele
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.02 }}
-                    onClick={() => handleCustomerClick(customer)}
                     className="hover:bg-purple-50 transition-colors"
                   >
                     <td className="px-6 py-4">
@@ -216,10 +215,27 @@ export function CustomersList({ customers, appointments, onCustomerClick, onDele
                         )}
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-center">
-                      <button className="text-[#AFA1FD] hover:text-[#8B7FE8] text-sm font-medium">
-                        Ver detalles
-                      </button>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center justify-center gap-3">
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleCustomerClick(customer)
+                          }}
+                          className="text-[#AFA1FD] hover:text-[#8B7FE8] text-sm font-medium"
+                        >
+                          Ver detalles
+                        </button>
+                        {onDeleteCustomer && (
+                          <button
+                            onClick={(e) => handleDelete(e, customer.id, customer.fullName)}
+                            className="text-red-500 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 transition-colors"
+                            title="Eliminar cliente"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </motion.tr>
                 )
