@@ -1044,9 +1044,9 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
         // Convert appointments to reservations
         const newReservations: Reservation[] = appointments.map((apt) => {
           const customer = customers.find((c) => c.id === apt.customerId)
-        if (!customer) return null
+          if (!customer) return null
 
-        // Get all appointments for this customer
+          // Get all appointments for this customer
         const customerApts = customerAppointments.get(apt.customerId) || []
         const sortedApts = [...customerApts].sort((a, b) => {
           const dateA = new Date(a.date + "T" + a.startTime)
@@ -1108,7 +1108,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
       // No appointments yet, keep empty array
       setReservations([])
     }
-  }, [crmStore.isLoaded, crmStore.data?.appointments, crmStore.data?.customers])
+  }, [crmStore.isLoaded, crmStore.data])
 
   // Sync calendar appointments from CRM store
   useEffect(() => {
