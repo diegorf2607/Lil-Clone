@@ -1108,7 +1108,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
       // No appointments yet, keep empty array
       setReservations([])
     }
-  }, [crmStore.isLoaded, crmStore.data])
+  }, [crmStore.isLoaded, crmStore.data?.appointments, crmStore.data?.customers])
 
   // Sync calendar appointments from CRM store
   useEffect(() => {
@@ -1155,7 +1155,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
         setAppointments([])
       }
     }
-  }, [crmStore.isLoaded, crmStore.data, services])
+  }, [crmStore.isLoaded, crmStore.data?.appointments, crmStore.data?.customers, crmStore.data?.staff, services])
 
   const handleSaveBusinessInfo = async () => {
     // Validate required fields
