@@ -30,8 +30,9 @@ export function useCRMStore() {
   const [reloadTrigger, setReloadTrigger] = useState(0)
   const useSupabase = isSupabaseConfigured()
 
-  // Function to reload data from Supabase or localStorage
-  const reloadData = useCallback(async () => {
+  // Load data from Supabase or localStorage
+  useEffect(() => {
+    const loadData = async () => {
       try {
         if (useSupabase) {
           const supabase = createClient()
@@ -108,8 +109,8 @@ export function useCRMStore() {
       }
     }
 
-    reloadData()
-  }, [useSupabase, reloadTrigger, reloadData])
+    loadData()
+  }, [useSupabase, reloadTrigger])
 
   // Expose reload function
   const reload = useCallback(() => {
