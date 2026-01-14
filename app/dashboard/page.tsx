@@ -504,62 +504,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
         return
       }
 
-      const appointment: CalendarAppointment = {
-        id: Date.now().toString(),
-        day: selectedTimeSlot.day,
-        time: newAppointment.time,
-        client: newAppointment.client,
-        clientEmail: newAppointment.clientEmail,
-        clientPhone: newAppointment.clientPhone,
-        service: newAppointment.service,
-        staffMember: newAppointment.staffMember || "Sin asignar",
-        duration: appointmentDuration, // Use calculated duration
-        status: "confirmed",
-        isManual: true,
-        adelantoPagado: selectedService?.requiereAdelanto ? newAppointment.adelantoPagado : undefined,
-        montoPagado:
-          selectedService?.requiereAdelanto && newAppointment.adelantoPagado
-            ? selectedService.montoAdelanto
-            : undefined,
-        metodoPago: selectedService?.requiereAdelanto && newAppointment.adelantoPagado ? "manual" : undefined,
-        // Set payment status and method based on whether advance is paid
-        paymentStatus: selectedService?.requiereAdelanto
-          ? newAppointment.adelantoPagado
-            ? "paid"
-            : "pending"
-          : "not-required",
-        paymentMethod:
-          selectedService?.requiereAdelanto && newAppointment.adelantoPagado
-            ? "online" // Assuming online payment if adelantoPagado is true for manual booking
-            : undefined,
-      }
-
-      setAppointments([...appointments, appointment])
-
-      // Also add to reservations list
-      const newReservation: Reservation = {
-        id: Date.now(),
-        clientName: newAppointment.client,
-        clientEmail: newAppointment.clientEmail,
-        clientPhone: newAppointment.clientPhone,
-        date: newAppointment.date,
-        time: newAppointment.time,
-        service: newAppointment.service,
-        status: "confirmed",
-        totalReservations: (reservations.find(r => r.clientEmail === newAppointment.clientEmail)?.totalReservations || 0) + 1, // Increment total reservations
-        lastVisit: newAppointment.date,
-        history: [
-          {
-            date: newAppointment.date,
-            service: newAppointment.service,
-            status: "confirmed",
-          },
-        ],
-      }
-
-      setReservations([...reservations, newReservation])
-
-      // Also save to CRM store
+      // Save to CRM store (this will sync all views via useEffect)
       if (crmStore.isLoaded) {
         // Get or create customer
         const existingCustomer = crmStore.getCustomerByPhone(newAppointment.clientPhone || "")
