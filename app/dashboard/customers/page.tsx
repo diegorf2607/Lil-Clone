@@ -64,6 +64,23 @@ export default function CustomersPage() {
     }
   }, [])
 
+  const handleDeleteCustomer = async (customerId: string) => {
+    try {
+      await crmStore.deleteCustomer(customerId)
+      toast({
+        title: "Cliente eliminado",
+        description: "El cliente ha sido eliminado exitosamente",
+      })
+    } catch (error) {
+      console.error("Error deleting customer:", error)
+      toast({
+        title: "Error",
+        description: "Hubo un error al eliminar el cliente. Por favor intenta de nuevo.",
+        variant: "destructive",
+      })
+    }
+  }
+
   const handleCreateCustomer = async () => {
     if (!formData.name || !formData.phone) {
       toast({
@@ -245,6 +262,7 @@ export default function CustomersPage() {
         <CustomersList
           customers={crmStore.data.customers}
           appointments={crmStore.data.appointments}
+          onDeleteCustomer={handleDeleteCustomer}
         />
       )}
 

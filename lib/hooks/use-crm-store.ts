@@ -232,6 +232,42 @@ export function useCRMStore() {
     [data.customers]
   )
 
+  const deleteCustomer = useCallback(
+    async (customerId: string) => {
+      try {
+        if (useSupabase) {
+          const supabase = createClient()
+          const { error } = await supabase
+            .from("customers")
+            .delete()
+            .eq("id", customerId)
+
+          if (error) {
+            console.error("Error deleting customer:", error)
+            throw error
+          }
+
+          // Trigger reload to refresh all data from Supabase
+          setReloadTrigger((prev) => prev + 1)
+        } else {
+          // Fallback to localStorage
+          setData((prev) => {
+            const updatedCustomers = prev.customers.filter((c) => c.id !== customerId)
+            const newData = { ...prev, customers: updatedCustomers }
+            if (typeof window !== "undefined") {
+              localStorage.setItem("beauty_crm_v1", JSON.stringify(newData))
+            }
+            return newData
+          })
+        }
+      } catch (error) {
+        console.error("Error deleting customer:", error)
+        throw error
+      }
+    },
+    [useSupabase, setReloadTrigger]
+  )
+
   // Staff operations
   const upsertStaff = useCallback(
     async (staff: Staff) => {
@@ -435,6 +471,7 @@ export function useCRMStore() {
     // Customers
     upsertCustomer,
     getCustomerByPhone,
+    deleteCustomer,
     // Staff
     upsertStaff,
     getStaffById,

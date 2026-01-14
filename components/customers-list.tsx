@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import { User, Phone, Mail, Calendar, ImageIcon, Gift } from "lucide-react"
+import { User, Phone, Mail, Calendar, ImageIcon, Gift, Trash2 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { format, parseISO, differenceInDays, addYears, isAfter } from "date-fns"
 import type { Customer, Appointment } from "@/lib/types/crm"
@@ -11,11 +11,19 @@ interface CustomersListProps {
   customers: Customer[]
   appointments: Appointment[]
   onCustomerClick?: (customer: Customer) => void
+  onDeleteCustomer?: (customerId: string) => void
 }
 
-export function CustomersList({ customers, appointments, onCustomerClick }: CustomersListProps) {
+export function CustomersList({ customers, appointments, onCustomerClick, onDeleteCustomer }: CustomersListProps) {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
+
+  const handleDelete = (e: React.MouseEvent, customerId: string, customerName: string) => {
+    e.stopPropagation() // Prevent row click
+    if (confirm(`¿Estás seguro de que deseas eliminar al cliente "${customerName}"?`)) {
+      onDeleteCustomer?.(customerId)
+    }
+  }
 
   // Calculate next birthday
   const getNextBirthday = (birthdate: string): Date | null => {
@@ -136,7 +144,7 @@ export function CustomersList({ customers, appointments, onCustomerClick }: Cust
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.02 }}
                     onClick={() => handleCustomerClick(customer)}
-                    className="hover:bg-purple-50 cursor-pointer transition-colors"
+                    className="hover:bg-purple-50 transition-colors"
                   >
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
