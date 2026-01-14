@@ -133,6 +133,8 @@ interface CalendarAppointment {
   totalSubServices?: number
   paymentStatus?: "paid" | "pending" | "not-required"
   paymentMethod?: "online" | "transferencia" | "manual"
+  duration?: number
+  locationId?: string
 }
 
 interface Reservation {
@@ -355,37 +357,8 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
     }
   }, [crmStore.isLoaded, crmStore.data.staff])
 
-  const [appointments, setAppointments] = useState<CalendarAppointment[]>([
-    // Example initial appointment data (can be expanded or removed)
-    {
-      id: "1",
-      day: 3, // Wednesday
-      time: "10:00",
-      client: "Ana García",
-      clientEmail: "ana.garcia@example.com",
-      clientPhone: "+1 234 567 8900",
-      service: "Manicura Clásica",
-      staffMember: "María González",
-      status: "confirmed",
-      isManual: false, // Assuming this was not manually created
-      paymentStatus: "paid", // Added default payment status
-      paymentMethod: "online", // Added default payment method
-    },
-    {
-      id: "2",
-      day: 5, // Friday
-      time: "14:00",
-      client: "Carlos Ruiz",
-      clientEmail: "carlos.ruiz@example.com",
-      clientPhone: "+1 234 567 8901",
-      service: "Pedicura Deluxe",
-      staffMember: "Laura Martínez", // Assuming another staff member exists
-      status: "confirmed",
-      isManual: false,
-      paymentStatus: "pending", // Added default payment status
-      paymentMethod: "online", // Added default payment method
-    },
-  ])
+  // Appointments will be synced from CRM store
+  const [appointments, setAppointments] = useState<CalendarAppointment[]>([])
 
   const [entryType, setEntryType] = useState<"appointment" | "occupation">("appointment")
 
@@ -505,7 +478,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
         const aptStartMinutes = Number.parseInt(apt.time.split(":")[0]) * 60 + Number.parseInt(apt.time.split(":")[1])
         const newStartMinutes =
           Number.parseInt(newAppointment.time.split(":")[0]) * 60 + Number.parseInt(newAppointment.time.split(":")[1])
-        const aptEndMinutes = aptStartMinutes + apt.duration
+        const aptEndMinutes = aptStartMinutes + (apt.duration || 30)
         const newEndMinutes = newStartMinutes + appointmentDuration // Use calculated duration
 
         // Check if the current slot is within business hours
@@ -918,17 +891,57 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
     }
   }
 
-  const upcomingAppointments = [
-    { id: 1, client: "Cliente 1", service: "Manicura", time: "11:30 AM", status: "Confirmada" },
-    { id: 2, client: "Cliente 2", service: "Manicura", time: "12:30 AM", status: "Confirmada" },
-    { id: 3, client: "Cliente 3", service: "Manicura", time: "13:30 AM", status: "Confirmada" },
-  ]
+  // Calculate upcoming appointments from CRM store (today and future)
+  const upcomingAppointments = useMemo(() => {
+    if (!crmStore.isLoaded) return []
+    
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    
+    return crmStore.data.appointments
+      .filter((apt) => {
+        const aptDate = new Date(apt.date + "T" + apt.startTime)
+        aptDate.setHours(0, 0, 0, 0)
+        return aptDate >= today
+      })
+      .sort((a, b) => {
+        const dateA = new Date(a.date + "T" + a.startTime)
+        const dateB = new Date(b.date + "T" + b.startTime)
+        return dateA.getTime() - dateB.getTime()
+      })
+      .slice(0, 5) // Get top 5 upcoming
+      .map((apt) => {
+        const customer = crmStore.data.customers.find((c) => c.id === apt.customerId)
+        const [hours, minutes] = apt.startTime.split(":")
+        const hour24 = parseInt(hours)
+        const hour12 = hour24 === 0 ? 12 : hour24 > 12 ? hour24 - 12 : hour24
+        const period = hour24 >= 12 ? "PM" : "AM"
+        const time12 = `${hour12}:${minutes} ${period}`
+        
+        return {
+          id: apt.id,
+          client: customer?.fullName || "Cliente desconocido",
+          service: apt.serviceName,
+          time: time12,
+          status: "Confirmada",
+        }
+      })
+  }, [crmStore.isLoaded, crmStore.data.appointments, crmStore.data.customers])
 
-  const recentReservations = [
-    { id: 1, text: "Reserva #001 - Cliente A - Confirmada" },
-    { id: 2, text: "Reserva #002 - Cliente B - Completada" },
-    { id: 3, text: "Reserva #003 - Cliente C - Confirmada" },
-  ]
+  // Calculate recent reservations from reservations state
+  const recentReservations = useMemo(() => {
+    return reservations
+      .sort((a, b) => {
+        const dateA = new Date(a.date + "T" + a.time)
+        const dateB = new Date(b.date + "T" + b.time)
+        return dateB.getTime() - dateA.getTime() // Most recent first
+      })
+      .slice(0, 5) // Get top 5 recent
+      .map((res) => ({
+        id: res.id,
+        text: `${res.clientName} - ${res.service} - ${getStatusConfig(res.status).label}`,
+      }))
+  }, [reservations])
 
   const getWeekDays = (date: Date) => {
     const days = []
@@ -1109,14 +1122,14 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
           date: apt.date,
           time: time12,
           service: apt.serviceName,
-          status: status,
+          status: status as "confirmed" | "completed" | "cancelled",
           totalReservations: totalReservations,
           lastVisit: lastVisit,
           history: history,
           // Store the original appointment ID for reference
           appointmentId: apt.id,
         }
-      }).filter((res): res is Reservation => res !== null)
+      }).filter((res) => res !== null) as Reservation[]
 
       setReservations(newReservations)
     } else if (crmStore.isLoaded && crmStore.data.appointments.length === 0) {
@@ -1124,6 +1137,47 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
       setReservations([])
     }
   }, [crmStore.isLoaded, crmStore.data.appointments, crmStore.data.customers])
+
+  // Sync calendar appointments from CRM store
+  useEffect(() => {
+    if (crmStore.isLoaded && crmStore.data.appointments.length > 0) {
+      const calendarAppointments: CalendarAppointment[] = crmStore.data.appointments.map((apt) => {
+        const customer = crmStore.data.customers.find((c) => c.id === apt.customerId)
+        const staff = crmStore.data.staff.find((s) => s.id === apt.staffId)
+        
+        // Convert date to day of week (0 = Sunday, 6 = Saturday)
+        const aptDate = new Date(apt.date)
+        const dayOfWeek = aptDate.getDay()
+        
+        // Determine status based on date
+        const now = new Date()
+        let status: "confirmed" | "pending" | "completed" | "cancelled" = "confirmed"
+        if (aptDate < now) {
+          status = "completed"
+        }
+        
+        return {
+          id: apt.id,
+          day: dayOfWeek,
+          time: apt.startTime,
+          client: customer?.fullName || "Cliente desconocido",
+          clientEmail: customer?.email || "",
+          clientPhone: customer?.phone || "",
+          service: apt.serviceName,
+          staffMember: staff?.name || "",
+          status: status,
+          isManual: false,
+          paymentStatus: "pending",
+          paymentMethod: "online",
+          duration: services.find((s) => s.name === apt.serviceName)?.duration || apt.baseDuration || 30,
+        }
+      })
+      
+      setAppointments(calendarAppointments)
+    } else if (crmStore.isLoaded && crmStore.data.appointments.length === 0) {
+      setAppointments([])
+    }
+  }, [crmStore.isLoaded, crmStore.data.appointments, crmStore.data.customers, crmStore.data.staff, services])
 
   const handleSaveBusinessInfo = async () => {
     // Validate required fields
@@ -1286,10 +1340,8 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
       return appointments // Todos los locales
     }
     
-    // Admin y Recepcionista: solo su local
-    return appointments.filter(apt => 
-      !apt.locationId || apt.locationId === user.locationId
-    )
+    // Admin y Recepcionista: todos los appointments (locationId no implementado aún)
+    return appointments
   }, [appointments, user])
 
   const visibleReservations = useMemo(() => {
@@ -1299,10 +1351,8 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
       return reservations // Todas
     }
     
-    // Admin y Recepcionista: solo su local
-    return reservations.filter(res => 
-      !res.locationId || res.locationId === user.locationId
-    )
+    // Admin y Recepcionista: todas las reservas (locationId no implementado aún)
+    return reservations
   }, [reservations, user])
 
   const filteredReservations = visibleReservations.filter((res) => {
@@ -1416,40 +1466,88 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                  {[
-                    {
-                      title: "Próximas citas",
-                      value: "8",
-                      subtitle: "Hoy",
-                      icon: Calendar,
-                      gradient: "from-purple-500 to-purple-600",
-                      bgGradient: "from-purple-50 to-purple-100",
-                    },
-                    {
-                      title: "Clientes recurrentes",
-                      value: "24",
-                      subtitle: "Este mes",
-                      icon: Users,
-                      gradient: "from-blue-500 to-blue-600",
-                      bgGradient: "from-blue-50 to-blue-100",
-                    },
-                    {
-                      title: "Ingresos estimados",
-                      value: "$2,450",
-                      subtitle: "Este mes",
-                      icon: DollarSign,
-                      gradient: "from-green-500 to-green-600",
-                      bgGradient: "from-green-50 to-green-100",
-                    },
-                    {
-                      title: "Tasa de ocupación",
-                      value: "85%",
-                      subtitle: "Promedio",
-                      icon: BarChart3,
-                      gradient: "from-orange-500 to-orange-600",
-                      bgGradient: "from-orange-50 to-orange-100",
-                    },
-                  ].map((metric, index) => (
+                  {useMemo(() => {
+                    // Calculate metrics from real data
+                    const today = new Date()
+                    today.setHours(0, 0, 0, 0)
+                    
+                    // Count appointments today
+                    const todayAppointments = crmStore.isLoaded
+                      ? crmStore.data.appointments.filter((apt) => {
+                          const aptDate = new Date(apt.date + "T" + apt.startTime)
+                          aptDate.setHours(0, 0, 0, 0)
+                          return aptDate.getTime() === today.getTime()
+                        }).length
+                      : 0
+                    
+                    // Count unique customers this month
+                    const thisMonth = new Date()
+                    thisMonth.setDate(1)
+                    thisMonth.setHours(0, 0, 0, 0)
+                    const thisMonthCustomers = crmStore.isLoaded
+                      ? new Set(
+                          crmStore.data.appointments
+                            .filter((apt) => {
+                              const aptDate = new Date(apt.date)
+                              return aptDate >= thisMonth
+                            })
+                            .map((apt) => apt.customerId)
+                        ).size
+                      : 0
+                    
+                    // Calculate estimated income (sum of service prices)
+                    const estimatedIncome = crmStore.isLoaded
+                      ? crmStore.data.appointments
+                          .filter((apt) => {
+                            const aptDate = new Date(apt.date)
+                            return aptDate >= thisMonth
+                          })
+                          .reduce((sum, apt) => {
+                            const service = services.find((s) => s.name === apt.serviceName)
+                            return sum + (service?.price || 0)
+                          }, 0)
+                      : 0
+                    
+                    // Calculate occupancy rate (simplified: appointments / available slots)
+                    const occupancyRate = crmStore.isLoaded && crmStore.data.appointments.length > 0
+                      ? Math.min(100, Math.round((crmStore.data.appointments.length / 50) * 100))
+                      : 0
+                    
+                    return [
+                      {
+                        title: "Próximas citas",
+                        value: todayAppointments.toString(),
+                        subtitle: "Hoy",
+                        icon: Calendar,
+                        gradient: "from-purple-500 to-purple-600",
+                        bgGradient: "from-purple-50 to-purple-100",
+                      },
+                      {
+                        title: "Clientes recurrentes",
+                        value: thisMonthCustomers.toString(),
+                        subtitle: "Este mes",
+                        icon: Users,
+                        gradient: "from-blue-500 to-blue-600",
+                        bgGradient: "from-blue-50 to-blue-100",
+                      },
+                      {
+                        title: "Ingresos estimados",
+                        value: `S/. ${estimatedIncome.toLocaleString()}`,
+                        subtitle: "Este mes",
+                        icon: DollarSign,
+                        gradient: "from-green-500 to-green-600",
+                        bgGradient: "from-green-50 to-green-100",
+                      },
+                      {
+                        title: "Tasa de ocupación",
+                        value: `${occupancyRate}%`,
+                        subtitle: "Promedio",
+                        icon: BarChart3,
+                        gradient: "from-orange-500 to-orange-600",
+                        bgGradient: "from-orange-50 to-orange-100",
+                      },
+                    ]
+                  }, [crmStore.isLoaded, crmStore.data.appointments, services]).map((metric, index) => (
                     <motion.div
                       key={metric.title}
                       initial={{ opacity: 0, y: 20 }}
@@ -2804,7 +2902,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
                                     <h5 className="font-semibold text-[#2C293F] mb-3">Historial de reservas</h5>
                                     <div className="space-y-2">
                                       {reservation.history.map((item, idx) => {
-                                        const historyStatus = getStatusConfig(item.status)
+                                        const historyStatus = getStatusConfig(item.status as "confirmed" | "completed" | "cancelled")
                                         
                                         // Find corresponding appointment in CRM store for this history item
                                         let historyAppointment = null
@@ -2857,9 +2955,9 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
                                             }
                                             
                                             // Check if appointment has images
-                                            hasHistoryImages = historyAppointment?.inspirationImages && 
-                                                              Array.isArray(historyAppointment.inspirationImages) && 
-                                                              historyAppointment.inspirationImages.length > 0
+                                            hasHistoryImages = !!(historyAppointment?.inspirationImages && 
+                                                              Array.isArray(historyAppointment.inspirationImages) &&
+                                                              historyAppointment.inspirationImages.length > 0)
                                           }
                                         }
                                         
