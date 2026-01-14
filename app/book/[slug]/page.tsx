@@ -197,45 +197,55 @@ export default function PublicBookingPage({ params }: { params: { slug: string }
     }
   }
 
-  const handleConfirmBooking = () => {
+  const handleConfirmBooking = async () => {
     if (!bookingData.service || !bookingData.date || !bookingData.time || !bookingData.name || !bookingData.phone) {
       return
     }
 
-    // Generate IDs
-    const customerId = `customer_${Date.now()}`
-    const appointmentId = `appointment_${Date.now()}`
-    const staffId = bookingData.staffId || `staff_${bookingData.service.id}`
+    try {
+      // Upsert customer (will get UUID from Supabase)
+      await crmStore.upsertCustomer({
+        id: `temp_${Date.now()}`, // Temporary ID, will be replaced
+        fullName: bookingData.name,
+        phone: bookingData.phone,
+        email: bookingData.email,
+        birthdate: bookingData.birthdate || undefined,
+      })
 
-    // Upsert customer
-    crmStore.upsertCustomer({
-      id: customerId,
-      fullName: bookingData.name,
-      phone: bookingData.phone,
-      email: bookingData.email,
-      birthdate: bookingData.birthdate || undefined,
-    })
+      // Get the customer ID after upsert (wait a bit for it to be saved)
+      await new Promise(resolve => setTimeout(resolve, 200))
+      const customer = crmStore.getCustomerByPhone(bookingData.phone)
+      
+      if (!customer || !customer.id) {
+        throw new Error("No se pudo obtener el ID del cliente después de guardar")
+      }
+      
+      const customerId = customer.id
 
-    // Get base duration
-    const baseDuration = bookingData.service.duration || 30
+      // Get base duration
+      const baseDuration = bookingData.service.duration || 30
 
-    // Convert time from "9:00 AM" to "09:00"
-    const time24 = convertTo24Hour(bookingData.time)
+      // Convert time from "9:00 AM" to "09:00"
+      const time24 = convertTo24Hour(bookingData.time)
 
-    // Add appointment
-    crmStore.addAppointment({
-      id: appointmentId,
-      customerId,
-      staffId,
-      serviceName: bookingData.service.name,
-      date: bookingData.date,
-      startTime: time24,
-      baseDuration,
-      inspirationImages: bookingData.inspirationImages,
-      notes: bookingData.comments || undefined,
-    })
+      // Add appointment (will get UUID from Supabase)
+      await crmStore.addAppointment({
+        id: `temp_${Date.now()}`, // Temporary ID, will be replaced
+        customerId,
+        staffId: bookingData.staffId || undefined,
+        serviceName: bookingData.service.name,
+        date: bookingData.date,
+        startTime: time24,
+        baseDuration,
+        inspirationImages: bookingData.inspirationImages,
+        notes: bookingData.comments || undefined,
+      })
 
-    setStep("success")
+      setStep("success")
+    } catch (error) {
+      console.error("Error saving booking:", error)
+      alert("Hubo un error al guardar la reserva. Por favor intenta de nuevo.")
+    }
   }
 
   // Helper function to convert 12-hour to 24-hour format
