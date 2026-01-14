@@ -39,10 +39,19 @@ export function CustomersList({ customers, appointments, onCustomerClick }: Cust
   const isBirthdayToday = (birthdate: string): boolean => {
     if (!birthdate) return false
     try {
+      // Parse the birthdate (can be in YYYY-MM-DD format from Supabase)
       const birth = parseISO(birthdate)
       const today = new Date()
-      return birth.getMonth() === today.getMonth() && birth.getDate() === today.getDate()
-    } catch {
+      
+      // Compare month (0-indexed) and day
+      const birthMonth = birth.getMonth()
+      const birthDay = birth.getDate()
+      const todayMonth = today.getMonth()
+      const todayDay = today.getDate()
+      
+      return birthMonth === todayMonth && birthDay === todayDay
+    } catch (error) {
+      console.error("Error checking birthday:", error, birthdate)
       return false
     }
   }
@@ -99,8 +108,128 @@ export function CustomersList({ customers, appointments, onCustomerClick }: Cust
         </div>
       </div>
 
-      {/* Customers Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {/* Customers Table */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gradient-to-r from-[#AFA1FD] to-[#8B7FE8] text-white">
+              <tr>
+                <th className="px-6 py-4 text-left text-sm font-semibold">Cliente</th>
+                <th className="px-6 py-4 text-left text-sm font-semibold">Contacto</th>
+                <th className="px-6 py-4 text-left text-sm font-semibold">Cumpleaños</th>
+                <th className="px-6 py-4 text-left text-sm font-semibold">Citas</th>
+                <th className="px-6 py-4 text-center text-sm font-semibold">Acciones</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {filteredCustomers.map((customer, index) => {
+                const nextBirthday = customer.birthdate ? getNextBirthday(customer.birthdate) : null
+                const birthdayToday = customer.birthdate ? isBirthdayToday(customer.birthdate) : false
+                const birthdaySoon = customer.birthdate ? isBirthdaySoon(customer.birthdate) : false
+                const customerImages = getCustomerImages(customer.id)
+                const customerAppointments = getCustomerAppointments(customer.id)
+
+                return (
+                  <motion.tr
+                    key={customer.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.02 }}
+                    onClick={() => handleCustomerClick(customer)}
+                    className="hover:bg-purple-50 cursor-pointer transition-colors"
+                  >
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-gradient-to-br from-[#AFA1FD] to-[#8B7FE8] rounded-full flex items-center justify-center relative flex-shrink-0">
+                          <User className="w-5 h-5 text-white" />
+                          {birthdayToday && (
+                            <span className="absolute -top-1 -right-1 text-yellow-500 text-xl leading-none">⭐</span>
+                          )}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-[#2C293F]">{customer.fullName}</span>
+                            {birthdayToday && (
+                              <Badge className="bg-yellow-200 text-yellow-900 border-yellow-400 font-bold text-xs px-2 py-0">
+                                <Gift className="w-3 h-3 mr-1" />
+                                ¡Cumple hoy!
+                              </Badge>
+                            )}
+                            {!birthdayToday && birthdaySoon && (
+                              <Badge className="bg-yellow-100 text-yellow-800 border-yellow-300 text-xs px-2 py-0">
+                                <Gift className="w-3 h-3 mr-1" />
+                                Cumple pronto
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                          <Phone className="w-3 h-3" />
+                          <span>{customer.phone}</span>
+                        </div>
+                        {customer.email && (
+                          <div className="flex items-center gap-2 text-sm text-gray-600">
+                            <Mail className="w-3 h-3" />
+                            <span>{customer.email}</span>
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      {customer.birthdate && nextBirthday ? (
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                          <Calendar className="w-4 h-4" />
+                          <span>
+                            {format(nextBirthday, "dd/MM")}
+                            {birthdaySoon && !birthdayToday && (
+                              <span className="ml-2 text-yellow-600 font-semibold">
+                                (en {differenceInDays(nextBirthday, new Date())} días)
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-sm text-gray-400">No registrado</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-[#2C293F]">{customerAppointments.length}</span>
+                        <span className="text-sm text-gray-600">citas</span>
+                        {customerImages.length > 0 && (
+                          <div className="flex items-center gap-1 text-xs text-[#AFA1FD] ml-2">
+                            <ImageIcon className="w-3 h-3" />
+                            <span>{customerImages.length}</span>
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <button className="text-[#AFA1FD] hover:text-[#8B7FE8] text-sm font-medium">
+                        Ver detalles
+                      </button>
+                    </td>
+                  </motion.tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+        {filteredCustomers.length === 0 && (
+          <div className="text-center py-12">
+            <User className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <p className="text-lg font-semibold text-gray-600">No se encontraron clientes</p>
+            <p className="text-sm text-gray-500 mt-2">Intenta con otros términos de búsqueda</p>
+          </div>
+        )}
+      </div>
+
+      {/* Old Grid View (commented out for now) */}
+      {/* <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredCustomers.map((customer, index) => {
           const nextBirthday = customer.birthdate ? getNextBirthday(customer.birthdate) : null
           const birthdayToday = customer.birthdate ? isBirthdayToday(customer.birthdate) : false

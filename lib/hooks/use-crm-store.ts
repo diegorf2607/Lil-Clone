@@ -59,30 +59,35 @@ export function useCRMStore() {
           if (staffError) console.error("Error loading staff:", staffError)
           if (appointmentsError) console.error("Error loading appointments:", appointmentsError)
 
+          // Only update data if we have valid data, otherwise keep existing data
+          const newCustomers = (customersData || []).map((c) => ({
+            id: c.id,
+            fullName: c.full_name,
+            phone: c.phone,
+            email: c.email || undefined,
+            birthdate: c.birthdate || undefined,
+          }))
+          const newStaff = (staffData || []).map((s) => ({
+            id: s.id,
+            name: s.name,
+            extraMinutes: s.extra_minutes || 0,
+          }))
+          const newAppointments = (appointmentsData || []).map((a) => ({
+            id: a.id,
+            customerId: a.customer_id,
+            staffId: a.staff_id,
+            serviceName: a.service_name,
+            date: a.date,
+            startTime: a.start_time,
+            baseDuration: a.base_duration,
+            inspirationImages: (a.inspiration_images as any) || [],
+            notes: a.notes || undefined,
+          }))
+
           setData({
-            customers: (customersData || []).map((c) => ({
-              id: c.id,
-              fullName: c.full_name,
-              phone: c.phone,
-              email: c.email || undefined,
-              birthdate: c.birthdate || undefined,
-            })),
-            staff: (staffData || []).map((s) => ({
-              id: s.id,
-              name: s.name,
-              extraMinutes: s.extra_minutes || 0,
-            })),
-            appointments: (appointmentsData || []).map((a) => ({
-              id: a.id,
-              customerId: a.customer_id,
-              staffId: a.staff_id,
-              serviceName: a.service_name,
-              date: a.date,
-              startTime: a.start_time,
-              baseDuration: a.base_duration,
-              inspirationImages: (a.inspiration_images as any) || [],
-              notes: a.notes || undefined,
-            })),
+            customers: newCustomers,
+            staff: newStaff,
+            appointments: newAppointments,
           })
         } else {
           // Fallback to localStorage
