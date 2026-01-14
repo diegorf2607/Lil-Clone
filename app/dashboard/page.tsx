@@ -1893,7 +1893,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
                                                 </span>
                                                 {sub.precioParcial > 0 && (
                                                   <span className="flex items-center gap-1">
-                                                    <DollarSign className="w-3 h-3" />${sub.precioParcial}
+                                                    <span className="text-xs font-semibold">S/. {sub.precioParcial}</span>
                                                   </span>
                                                 )}
                                               </div>
@@ -4140,7 +4140,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
                                   </span>
                                   {sub.precioParcial > 0 && (
                                     <span className="flex items-center gap-1">
-                                      <DollarSign className="w-3 h-3" />${sub.precioParcial}
+                                      <span className="text-xs font-semibold">S/. {sub.precioParcial}</span>
                                     </span>
                                   )}
                                 </div>
@@ -4185,7 +4185,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
                           </div>
 
                           <div>
-                            <Label className="text-xs text-gray-600 mb-1 block">Precio parcial ($)</Label>
+                            <Label className="text-xs text-gray-600 mb-1 block">Precio parcial (S/.)</Label>
                             <Input
                               type="number"
                               step="0.01"
@@ -4272,10 +4272,10 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
 
                     <div>
                       <Label htmlFor="servicePrice" className="text-[#2C293F] font-semibold mb-2 block">
-                        Precio total ($)
+                        Precio total (S/.)
                       </Label>
                       <div className="relative">
-                        <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-semibold">S/.</span>
                         <Input
                           id="servicePrice"
                           type="number"
@@ -4293,10 +4293,10 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
                 {serviceFormData.esPack && (
                   <div>
                     <Label htmlFor="servicePrice" className="text-[#2C293F] font-semibold mb-2 block">
-                      Precio total del pack ($)
+                      Precio total del pack (S/.)
                     </Label>
                     <div className="relative">
-                      <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-semibold">S/.</span>
                       <Input
                         id="servicePrice"
                         type="number"
@@ -4349,7 +4349,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
                             Monto del adelanto ($)
                           </Label>
                           <div className="relative">
-                            <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-semibold">S/.</span>
                             <Input
                               id="montoAdelanto"
                               type="number"
