@@ -27,11 +27,11 @@ export function useCRMStore() {
     appointments: [],
   })
   const [isLoaded, setIsLoaded] = useState(false)
+  const [reloadTrigger, setReloadTrigger] = useState(0)
   const useSupabase = isSupabaseConfigured()
 
-  // Load data from Supabase or localStorage
-  useEffect(() => {
-    const loadData = async () => {
+  // Function to reload data from Supabase or localStorage
+  const reloadData = useCallback(async () => {
       try {
         if (useSupabase) {
           const supabase = createClient()
@@ -109,7 +109,12 @@ export function useCRMStore() {
     }
 
     loadData()
-  }, [useSupabase])
+  }, [useSupabase, reloadTrigger])
+
+  // Expose reload function
+  const reload = useCallback(() => {
+    setReloadTrigger((prev) => prev + 1)
+  }, [])
 
   // Customer operations
   const upsertCustomer = useCallback(
@@ -363,15 +368,36 @@ export function useCRMStore() {
             throw insertError
           }
 
-          // Reload from Supabase
+          // Reload all data from Supabase to ensure consistency
+          const { data: customersData } = await supabase
+            .from("customers")
+            .select("*")
+            .order("created_at", { ascending: false })
+
+          const { data: staffData } = await supabase
+            .from("staff")
+            .select("*")
+            .order("created_at", { ascending: false })
+
           const { data: appointmentsData } = await supabase
             .from("appointments")
             .select("*")
             .order("date", { ascending: false })
 
-          if (appointmentsData) {
-            setData((prev) => ({
-              ...prev,
+          if (customersData && staffData && appointmentsData) {
+            setData({
+              customers: customersData.map((c) => ({
+                id: c.id,
+                fullName: c.full_name,
+                phone: c.phone,
+                email: c.email || undefined,
+                birthdate: c.birthdate || undefined,
+              })),
+              staff: staffData.map((s) => ({
+                id: s.id,
+                name: s.name,
+                extraMinutes: s.extra_minutes || 0,
+              })),
               appointments: appointmentsData.map((a) => ({
                 id: a.id,
                 customerId: a.customer_id,
@@ -383,7 +409,7 @@ export function useCRMStore() {
                 inspirationImages: (a.inspiration_images as any) || [],
                 notes: a.notes || undefined,
               })),
-            }))
+            })
           }
         } else {
           // Fallback to localStorage
@@ -439,5 +465,7 @@ export function useCRMStore() {
     addAppointment,
     getAppointmentsByDate,
     getAppointmentsByCustomer,
+    // Reload
+    reload,
   }
 }

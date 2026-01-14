@@ -232,6 +232,10 @@ export default function DemoPage() {
         notes: comments || undefined,
       })
 
+      // Reload CRM store to ensure data is synced
+      await new Promise(resolve => setTimeout(resolve, 300))
+      crmStore.reload()
+
       setStep("success")
     } catch (error) {
       console.error("Error saving booking:", error)

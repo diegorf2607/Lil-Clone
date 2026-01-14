@@ -621,7 +621,27 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
           inspirationImages: [],
           notes: newAppointment.notes,
         })
+
+        // Reload CRM store to sync all views
+        await new Promise(resolve => setTimeout(resolve, 300))
+        crmStore.reload()
       }
+
+      // Close modal
+      setIsAppointmentModalOpen(false)
+      setNewAppointment({
+        client: "",
+        clientEmail: "",
+        clientPhone: "",
+        service: "",
+        staffMember: "",
+        date: "",
+        time: "",
+        duration: 30,
+        notes: "",
+        adelantoPagado: false,
+      })
+      setSelectedTimeSlot(null)
 
       toast({
         title: "Reserva creada correctamente ✨",
@@ -1022,10 +1042,10 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
       })
     } else if (businessInfoLoaded && !supabaseBusinessInfo) {
       // Fallback to localStorage if Supabase not configured
-      const savedBusinessInfo = localStorage.getItem("lilaBusinessInfo")
-      if (savedBusinessInfo) {
-        setBusinessInfo(JSON.parse(savedBusinessInfo))
-      }
+    const savedBusinessInfo = localStorage.getItem("lilaBusinessInfo")
+    if (savedBusinessInfo) {
+      setBusinessInfo(JSON.parse(savedBusinessInfo))
+    }
     }
   }, [businessInfoLoaded, supabaseBusinessInfo])
 
@@ -1514,38 +1534,38 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
                       : 0
                     
                     return [
-                      {
-                        title: "Próximas citas",
+                    {
+                      title: "Próximas citas",
                         value: todayAppointments.toString(),
-                        subtitle: "Hoy",
-                        icon: Calendar,
-                        gradient: "from-purple-500 to-purple-600",
-                        bgGradient: "from-purple-50 to-purple-100",
-                      },
-                      {
-                        title: "Clientes recurrentes",
+                      subtitle: "Hoy",
+                      icon: Calendar,
+                      gradient: "from-purple-500 to-purple-600",
+                      bgGradient: "from-purple-50 to-purple-100",
+                    },
+                    {
+                      title: "Clientes recurrentes",
                         value: thisMonthCustomers.toString(),
-                        subtitle: "Este mes",
-                        icon: Users,
-                        gradient: "from-blue-500 to-blue-600",
-                        bgGradient: "from-blue-50 to-blue-100",
-                      },
-                      {
-                        title: "Ingresos estimados",
+                      subtitle: "Este mes",
+                      icon: Users,
+                      gradient: "from-blue-500 to-blue-600",
+                      bgGradient: "from-blue-50 to-blue-100",
+                    },
+                    {
+                      title: "Ingresos estimados",
                         value: `S/. ${estimatedIncome.toLocaleString()}`,
-                        subtitle: "Este mes",
-                        icon: DollarSign,
-                        gradient: "from-green-500 to-green-600",
-                        bgGradient: "from-green-50 to-green-100",
-                      },
-                      {
-                        title: "Tasa de ocupación",
+                      subtitle: "Este mes",
+                      icon: DollarSign,
+                      gradient: "from-green-500 to-green-600",
+                      bgGradient: "from-green-50 to-green-100",
+                    },
+                    {
+                      title: "Tasa de ocupación",
                         value: `${occupancyRate}%`,
-                        subtitle: "Promedio",
-                        icon: BarChart3,
-                        gradient: "from-orange-500 to-orange-600",
-                        bgGradient: "from-orange-50 to-orange-100",
-                      },
+                      subtitle: "Promedio",
+                      icon: BarChart3,
+                      gradient: "from-orange-500 to-orange-600",
+                      bgGradient: "from-orange-50 to-orange-100",
+                    },
                     ]
                   }, [crmStore.isLoaded, crmStore.data.appointments, services]).map((metric, index) => (
                     <motion.div
@@ -1668,14 +1688,14 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
                     <p className="text-[#AFA1FD] text-lg font-medium">Gestiona los servicios que ofrece tu negocio</p>
                   </div>
                   {permissions.canEditServices && (
-                    <Button
-                      onClick={handleCreateService}
-                      className="bg-gradient-to-r from-[#AFA1FD] to-[#8B7FE8] hover:from-[#9890E8] hover:to-[#7A6FD8] text-white gap-2 shadow-lg shadow-[#AFA1FD]/30 px-4 sm:px-6 py-4 sm:py-6 text-sm sm:text-base whitespace-nowrap"
-                    >
-                      <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
-                      <span className="hidden xs:inline">Crear servicio</span>
-                      <span className="xs:hidden">Crear</span>
-                    </Button>
+                  <Button
+                    onClick={handleCreateService}
+                    className="bg-gradient-to-r from-[#AFA1FD] to-[#8B7FE8] hover:from-[#9890E8] hover:to-[#7A6FD8] text-white gap-2 shadow-lg shadow-[#AFA1FD]/30 px-4 sm:px-6 py-4 sm:py-6 text-sm sm:text-base whitespace-nowrap"
+                  >
+                    <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <span className="hidden xs:inline">Crear servicio</span>
+                    <span className="xs:hidden">Crear</span>
+                  </Button>
                   )}
                 </div>
 
@@ -1788,24 +1808,24 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
                             </div>
                             <div className="flex gap-2 flex-wrap">
                               {permissions.canEditServices && (
-                                <Button
-                                  onClick={() => handleEditService(service)}
-                                  variant="outline"
-                                  size="sm"
-                                  className="border-2 border-[#AFA1FD] text-[#AFA1FD] hover:bg-[#AFA1FD] hover:text-white transition-all bg-transparent text-xs sm:text-sm whitespace-nowrap"
-                                >
-                                  Editar
-                                </Button>
+                              <Button
+                                onClick={() => handleEditService(service)}
+                                variant="outline"
+                                size="sm"
+                                className="border-2 border-[#AFA1FD] text-[#AFA1FD] hover:bg-[#AFA1FD] hover:text-white transition-all bg-transparent text-xs sm:text-sm whitespace-nowrap"
+                              >
+                                Editar
+                              </Button>
                               )}
                               {permissions.canDeleteServices && (
-                                <Button
-                                  onClick={() => handleDeleteService(service.id)}
-                                  variant="outline"
-                                  size="sm"
-                                  className="border-2 border-red-300 text-red-600 hover:bg-red-500 hover:text-white hover:border-red-500 transition-all bg-transparent text-xs sm:text-sm whitespace-nowrap"
-                                >
-                                  Eliminar
-                                </Button>
+                              <Button
+                                onClick={() => handleDeleteService(service.id)}
+                                variant="outline"
+                                size="sm"
+                                className="border-2 border-red-300 text-red-600 hover:bg-red-500 hover:text-white hover:border-red-500 transition-all bg-transparent text-xs sm:text-sm whitespace-nowrap"
+                              >
+                                Eliminar
+                              </Button>
                               )}
                             </div>
                           </div>
@@ -1828,12 +1848,12 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
                             )}
                             <div className="flex items-center gap-2">
                               <div className="w-2 h-2 rounded-full bg-green-500" />
-                              <span className="font-semibold text-gray-700">${service.price}</span>
+                              <span className="font-semibold text-gray-700">S/. {service.price}</span>
                             </div>
                             {service.requiereAdelanto && (
                               <div className="flex items-center gap-2">
                                 <div className="w-2 h-2 rounded-full bg-orange-500" />
-                                <span className="font-semibold text-gray-700">Adelanto: ${service.montoAdelanto}</span>
+                                <span className="font-semibold text-gray-700">Adelanto: S/. {service.montoAdelanto}</span>
                               </div>
                             )}
                             {service.esPack && service.subservicios && (
@@ -2087,80 +2107,80 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
                     {/* Desktop action buttons */}
                     <div className="hidden md:flex gap-2">
                       {permissions.canCreateReservations && (
-                        <Button
+                      <Button
                           onClick={() => setIsAppointmentModalOpen(true)}
-                          size="sm"
-                          className="gap-2 bg-gradient-to-r from-[#AFA1FD] to-[#8B7FE8] text-white hover:from-[#9890E8] hover:to-[#7A6FD8] shadow-lg border-0"
-                        >
-                          <Plus className="w-4 h-4" />
-                          Crear Reserva
-                        </Button>
+                        size="sm"
+                        className="gap-2 bg-gradient-to-r from-[#AFA1FD] to-[#8B7FE8] text-white hover:from-[#9890E8] hover:to-[#7A6FD8] shadow-lg border-0"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Crear Reserva
+                      </Button>
                       )}
                       {permissions.canEditBusinessHours && (
-                        <Button
-                          onClick={() => setIsBusinessHoursModalOpen(true)}
-                          variant="outline"
-                          size="sm"
-                          className="gap-2 border-2 border-gray-300 hover:border-[#AFA1FD] hover:text-[#AFA1FD] bg-transparent"
-                        >
-                          <CalendarClock className="w-4 h-4" />
-                          Horarios
-                        </Button>
+                      <Button
+                        onClick={() => setIsBusinessHoursModalOpen(true)}
+                        variant="outline"
+                        size="sm"
+                        className="gap-2 border-2 border-gray-300 hover:border-[#AFA1FD] hover:text-[#AFA1FD] bg-transparent"
+                      >
+                        <CalendarClock className="w-4 h-4" />
+                        Horarios
+                      </Button>
                       )}
                       {permissions.canEditStaff && (
-                        <Button
-                          onClick={() => setIsStaffModalOpen(true)}
-                          variant="outline"
-                          size="sm"
-                          className="gap-2 border-2 border-gray-300 hover:border-[#AFA1FD] hover:text-[#AFA1FD] bg-transparent"
-                        >
-                          <UserPlus className="w-4 h-4" />
-                          Personal
-                        </Button>
+                      <Button
+                        onClick={() => setIsStaffModalOpen(true)}
+                        variant="outline"
+                        size="sm"
+                        className="gap-2 border-2 border-gray-300 hover:border-[#AFA1FD] hover:text-[#AFA1FD] bg-transparent"
+                      >
+                        <UserPlus className="w-4 h-4" />
+                        Personal
+                      </Button>
                       )}
                       {permissions.canEditConfig && (
-                        <Button
-                          onClick={handleConnectGoogleCalendar}
-                          variant="outline"
-                          size="sm"
-                          className="gap-2 border-2 border-gray-300 hover:border-[#AFA1FD] hover:text-[#AFA1FD] bg-transparent"
-                        >
-                          <Calendar className="w-4 h-4" />
-                          Google Calendar
-                        </Button>
+                      <Button
+                        onClick={handleConnectGoogleCalendar}
+                        variant="outline"
+                        size="sm"
+                        className="gap-2 border-2 border-gray-300 hover:border-[#AFA1FD] hover:text-[#AFA1FD] bg-transparent"
+                      >
+                        <Calendar className="w-4 h-4" />
+                        Google Calendar
+                      </Button>
                       )}
                     </div>
 
                     {/* Mobile action buttons - icon only */}
                     <div className="flex md:hidden gap-2">
                       {permissions.canCreateReservations && (
-                        <Button
+                      <Button
                           onClick={() => setIsAppointmentModalOpen(true)}
-                          size="sm"
-                          className="bg-gradient-to-r from-[#AFA1FD] to-[#8B7FE8] text-white hover:from-[#9890E8] hover:to-[#7A6FD8] shadow-lg border-0 px-2"
-                        >
-                          <Plus className="w-4 h-4" />
-                        </Button>
+                        size="sm"
+                        className="bg-gradient-to-r from-[#AFA1FD] to-[#8B7FE8] text-white hover:from-[#9890E8] hover:to-[#7A6FD8] shadow-lg border-0 px-2"
+                      >
+                        <Plus className="w-4 h-4" />
+                      </Button>
                       )}
                       {permissions.canEditBusinessHours && (
-                        <Button
-                          onClick={() => setIsBusinessHoursModalOpen(true)}
-                          variant="outline"
-                          size="sm"
-                          className="border-2 border-gray-300 hover:border-[#AFA1FD] hover:text-[#AFA1FD] bg-transparent px-2"
-                        >
-                          <CalendarClock className="w-4 h-4" />
-                        </Button>
+                      <Button
+                        onClick={() => setIsBusinessHoursModalOpen(true)}
+                        variant="outline"
+                        size="sm"
+                        className="border-2 border-gray-300 hover:border-[#AFA1FD] hover:text-[#AFA1FD] bg-transparent px-2"
+                      >
+                        <CalendarClock className="w-4 h-4" />
+                      </Button>
                       )}
                       {permissions.canEditStaff && (
-                        <Button
-                          onClick={() => setIsStaffModalOpen(true)}
-                          variant="outline"
-                          size="sm"
-                          className="border-2 border-gray-300 hover:border-[#AFA1FD] hover:text-[#AFA1FD] bg-transparent px-2"
-                        >
-                          <UserPlus className="w-4 h-4" />
-                        </Button>
+                      <Button
+                        onClick={() => setIsStaffModalOpen(true)}
+                        variant="outline"
+                        size="sm"
+                        className="border-2 border-gray-300 hover:border-[#AFA1FD] hover:text-[#AFA1FD] bg-transparent px-2"
+                      >
+                        <UserPlus className="w-4 h-4" />
+                      </Button>
                       )}
                     </div>
                   </div>
@@ -2174,9 +2194,9 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
                     onDateChange={setCurrentDate}
                   />
                 ) : (
-                  <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden">
-                    {/* Desktop week view */}
-                    <div className="hidden md:block">
+                <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden">
+                  {/* Desktop week view */}
+                  <div className="hidden md:block">
                     <div className="grid grid-cols-8 border-b-2 border-gray-200">
                       <div className="p-4 bg-gradient-to-br from-gray-50 to-gray-100 border-r border-gray-200">
                         <p className="text-sm font-bold text-[#2C293F]">Hora</p>
@@ -2272,15 +2292,15 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
                                         )}
 
                                         {permissions.canCreateReservations && (
-                                          <button
-                                            onClick={(e) => {
-                                              e.stopPropagation()
-                                              handleDeleteAppointment(apt.id)
-                                            }}
-                                            className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs z-20"
-                                          >
-                                            ×
-                                          </button>
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            handleDeleteAppointment(apt.id)
+                                          }}
+                                          className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs z-20"
+                                        >
+                                          ×
+                                        </button>
                                         )}
 
                                         <div className="font-semibold truncate">{apt.client}</div>
@@ -2426,15 +2446,15 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
                                     <p className="text-xs opacity-75">{apt.staffMember}</p>
 
                                     {permissions.canCreateReservations && (
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation()
-                                          handleDeleteAppointment(apt.id)
-                                        }}
-                                        className="absolute bottom-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm"
-                                      >
-                                        ×
-                                      </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        handleDeleteAppointment(apt.id)
+                                      }}
+                                      className="absolute bottom-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm"
+                                    >
+                                      ×
+                                    </button>
                                     )}
                                   </motion.div>
                                 ))}
@@ -2565,16 +2585,16 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
                 )}
 
                 {permissions.canCreateReservations && (
-                  <motion.button
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                    onClick={() => handleCreateAppointment(0, timeSlots[0])}
-                    className="md:hidden fixed bottom-6 right-6 z-20 w-14 h-14 bg-gradient-to-r from-[#AFA1FD] to-[#8B7FE8] text-white rounded-full shadow-2xl flex items-center justify-center"
-                  >
-                    <Plus className="w-6 h-6" />
-                  </motion.button>
+                <motion.button
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => handleCreateAppointment(0, timeSlots[0])}
+                  className="md:hidden fixed bottom-6 right-6 z-20 w-14 h-14 bg-gradient-to-r from-[#AFA1FD] to-[#8B7FE8] text-white rounded-full shadow-2xl flex items-center justify-center"
+                >
+                  <Plus className="w-6 h-6" />
+                </motion.button>
                 )}
               </motion.div>
             )}
@@ -2598,14 +2618,14 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
                   </div>
                 ) : (
                   <>
-                    <div className="mb-8">
-                      <h1 className="text-5xl font-bold bg-gradient-to-r from-[#2C293F] via-[#AFA1FD] to-[#2C293F] bg-clip-text text-transparent mb-3">
-                        Reservas
-                      </h1>
-                      <p className="text-[#AFA1FD] text-lg font-medium">
-                        Gestiona todas las reservas y el historial de tus clientes
-                      </p>
-                    </div>
+                <div className="mb-8">
+                  <h1 className="text-5xl font-bold bg-gradient-to-r from-[#2C293F] via-[#AFA1FD] to-[#2C293F] bg-clip-text text-transparent mb-3">
+                    Reservas
+                  </h1>
+                  <p className="text-[#AFA1FD] text-lg font-medium">
+                    Gestiona todas las reservas y el historial de tus clientes
+                  </p>
+                </div>
 
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
@@ -2967,11 +2987,11 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
                                             className="p-3 bg-white rounded-lg text-sm"
                                           >
                                             <div className="flex items-center justify-between">
-                                              <div className="flex items-center gap-3">
-                                                <div className="w-2 h-2 rounded-full bg-[#AFA1FD]" />
-                                                <span className="text-gray-700">{item.date}</span>
-                                                <span className="text-gray-500">•</span>
-                                                <span className="text-gray-700">{item.service}</span>
+                                            <div className="flex items-center gap-3">
+                                              <div className="w-2 h-2 rounded-full bg-[#AFA1FD]" />
+                                              <span className="text-gray-700">{item.date}</span>
+                                              <span className="text-gray-500">•</span>
+                                              <span className="text-gray-700">{item.service}</span>
                                                 {hasHistoryImages && (
                                                   <div className="flex items-center gap-1 text-[#AFA1FD]">
                                                     <ImageIcon className="w-4 h-4" />
@@ -2980,16 +3000,16 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
                                                     </span>
                                                   </div>
                                                 )}
-                                              </div>
-                                              <span
-                                                className="px-2 py-1 rounded text-xs font-semibold"
-                                                style={{
-                                                  backgroundColor: historyStatus.bgColor,
-                                                  color: historyStatus.color,
-                                                }}
-                                              >
-                                                {historyStatus.label}
-                                              </span>
+                                            </div>
+                                            <span
+                                              className="px-2 py-1 rounded text-xs font-semibold"
+                                              style={{
+                                                backgroundColor: historyStatus.bgColor,
+                                                color: historyStatus.color,
+                                              }}
+                                            >
+                                              {historyStatus.label}
+                                            </span>
                                             </div>
                                             
                                             {/* Show images for this history item if they exist */}
@@ -3158,12 +3178,12 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
                   </div>
                 ) : (
                   <>
-                    <div className="mb-8">
-                      <h1 className="text-5xl font-bold bg-gradient-to-r from-[#2C293F] via-[#AFA1FD] to-[#2C293F] bg-clip-text text-transparent mb-3">
-                        Configuración
-                      </h1>
-                      <p className="text-[#AFA1FD] text-lg font-medium">Ajusta las preferencias de tu negocio</p>
-                    </div>
+                <div className="mb-8">
+                  <h1 className="text-5xl font-bold bg-gradient-to-r from-[#2C293F] via-[#AFA1FD] to-[#2C293F] bg-clip-text text-transparent mb-3">
+                    Configuración
+                  </h1>
+                  <p className="text-[#AFA1FD] text-lg font-medium">Ajusta las preferencias de tu negocio</p>
+                </div>
 
                 <div className="space-y-6">
                   <motion.div
@@ -3260,29 +3280,29 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
                             className="hidden"
                           />
                           {permissions.canEditConfig && (
-                            <Button
-                              onClick={handleLogoUpload}
-                              disabled={logoUploading}
-                              variant="outline"
-                              className="gap-2 border-gray-300 bg-transparent hover:border-[#AFA1FD] hover:text-[#AFA1FD]"
-                            >
-                              <Upload className="w-4 h-4" />
-                              {logoUploading ? "Subiendo..." : "Subir logo"}
-                            </Button>
+                          <Button
+                            onClick={handleLogoUpload}
+                            disabled={logoUploading}
+                            variant="outline"
+                            className="gap-2 border-gray-300 bg-transparent hover:border-[#AFA1FD] hover:text-[#AFA1FD]"
+                          >
+                            <Upload className="w-4 h-4" />
+                            {logoUploading ? "Subiendo..." : "Subir logo"}
+                          </Button>
                           )}
                         </div>
                       </div>
                     </div>
 
                     {permissions.canEditConfig && (
-                      <div className="mt-6 flex justify-end">
-                        <Button
-                          onClick={handleSaveBusinessInfo}
-                          className="bg-gradient-to-r from-[#AFA1FD] to-[#8B7FE8] hover:from-[#9890E8] hover:to-[#7A6FD8] text-white shadow-lg"
-                        >
-                          Guardar cambios
-                        </Button>
-                      </div>
+                    <div className="mt-6 flex justify-end">
+                      <Button
+                        onClick={handleSaveBusinessInfo}
+                        className="bg-gradient-to-r from-[#AFA1FD] to-[#8B7FE8] hover:from-[#9890E8] hover:to-[#7A6FD8] text-white shadow-lg"
+                      >
+                        Guardar cambios
+                      </Button>
+                    </div>
                     )}
                   </motion.div>
 
@@ -3370,27 +3390,27 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
                         </p>
                       </div>
                       {permissions.canEditConfig && (
-                        <Button
-                          onClick={handleConnectGoogleCalendar}
-                          disabled={calendarConnected}
-                          className={`gap-2 ${
-                            calendarConnected
-                              ? "bg-green-500 hover:bg-green-600"
-                              : "bg-gradient-to-r from-[#AFA1FD] to-[#8B7FE8] hover:from-[#9890E8] hover:to-[#7A6FD8]"
-                          } text-white shadow-lg`}
-                        >
-                          {calendarConnected ? (
-                            <>
-                              <Check className="w-4 h-4" />
-                              Conectado
-                            </>
-                          ) : (
-                            <>
-                              <Calendar className="w-4 h-4" />
-                              Conectar
-                            </>
-                          )}
-                        </Button>
+                      <Button
+                        onClick={handleConnectGoogleCalendar}
+                        disabled={calendarConnected}
+                        className={`gap-2 ${
+                          calendarConnected
+                            ? "bg-green-500 hover:bg-green-600"
+                            : "bg-gradient-to-r from-[#AFA1FD] to-[#8B7FE8] hover:from-[#9890E8] hover:to-[#7A6FD8]"
+                        } text-white shadow-lg`}
+                      >
+                        {calendarConnected ? (
+                          <>
+                            <Check className="w-4 h-4" />
+                            Conectado
+                          </>
+                        ) : (
+                          <>
+                            <Calendar className="w-4 h-4" />
+                            Conectar
+                          </>
+                        )}
+                      </Button>
                       )}
                     </div>
 
@@ -3425,13 +3445,13 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
                           reservas.
                         </p>
                         {permissions.canEditConfig && (
-                          <Button
-                            onClick={handleGenerateQR}
-                            className="bg-gradient-to-r from-[#AFA1FD] to-[#8B7FE8] hover:from-[#9890E8] hover:to-[#7A6FD8] text-white gap-2 shadow-lg"
-                          >
-                            <QrCode className="w-4 h-4" />
-                            {qrGenerated ? "Regenerar código QR" : "Generar código QR"}
-                          </Button>
+                        <Button
+                          onClick={handleGenerateQR}
+                          className="bg-gradient-to-r from-[#AFA1FD] to-[#8B7FE8] hover:from-[#9890E8] hover:to-[#7A6FD8] text-white gap-2 shadow-lg"
+                        >
+                          <QrCode className="w-4 h-4" />
+                          {qrGenerated ? "Regenerar código QR" : "Generar código QR"}
+                        </Button>
                         )}
                       </div>
 
@@ -3564,35 +3584,35 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
               <div className="space-y-6 py-4">
                 {/* Add new staff member */}
                 {permissions.canEditStaff && (
-                  <div className="p-4 bg-purple-50 rounded-xl border-2 border-dashed border-[#AFA1FD]">
-                    <h3 className="font-semibold text-[#2C293F] mb-4">Agregar nuevo miembro</h3>
-                    <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 bg-purple-50 rounded-xl border-2 border-dashed border-[#AFA1FD]">
+                  <h3 className="font-semibold text-[#2C293F] mb-4">Agregar nuevo miembro</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <Input
+                      placeholder="Nombre completo"
+                      value={newStaffMember.name}
+                      onChange={(e) => setNewStaffMember({ ...newStaffMember, name: e.target.value })}
+                    />
+                    <Input
+                      type="email"
+                      placeholder="Email"
+                      value={newStaffMember.email}
+                      onChange={(e) => setNewStaffMember({ ...newStaffMember, email: e.target.value })}
+                    />
+                    <div className="flex items-center gap-2">
+                      <Label>Color:</Label>
                       <Input
-                        placeholder="Nombre completo"
-                        value={newStaffMember.name}
-                        onChange={(e) => setNewStaffMember({ ...newStaffMember, name: e.target.value })}
+                        type="color"
+                        value={newStaffMember.color}
+                        onChange={(e) => setNewStaffMember({ ...newStaffMember, color: e.target.value })}
+                        className="w-20 h-10"
                       />
-                      <Input
-                        type="email"
-                        placeholder="Email"
-                        value={newStaffMember.email}
-                        onChange={(e) => setNewStaffMember({ ...newStaffMember, email: e.target.value })}
-                      />
-                      <div className="flex items-center gap-2">
-                        <Label>Color:</Label>
-                        <Input
-                          type="color"
-                          value={newStaffMember.color}
-                          onChange={(e) => setNewStaffMember({ ...newStaffMember, color: e.target.value })}
-                          className="w-20 h-10"
-                        />
-                      </div>
-                      <Button onClick={handleAddStaffMember} className="bg-[#AFA1FD] text-white">
-                        <Plus className="w-4 h-4 mr-2" />
-                        Agregar
-                      </Button>
                     </div>
+                    <Button onClick={handleAddStaffMember} className="bg-[#AFA1FD] text-white">
+                      <Plus className="w-4 h-4 mr-2" />
+                      Agregar
+                    </Button>
                   </div>
+                </div>
                 )}
 
                 {/* List of staff members */}
@@ -3613,14 +3633,14 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
                           </div>
                         </div>
                         {permissions.canEditStaff && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setStaffMembers(staffMembers.filter((s) => s.id !== staff.id))}
-                            className="text-red-600 border-red-300 hover:bg-red-50"
-                          >
-                            Eliminar
-                          </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setStaffMembers(staffMembers.filter((s) => s.id !== staff.id))}
+                          className="text-red-600 border-red-300 hover:bg-red-50"
+                        >
+                          Eliminar
+                        </Button>
                         )}
                       </div>
 
