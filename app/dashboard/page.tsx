@@ -1047,60 +1047,60 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
           if (!customer) return null
 
           // Get all appointments for this customer
-        const customerApts = customerAppointments.get(apt.customerId) || []
-        const sortedApts = [...customerApts].sort((a, b) => {
-          const dateA = new Date(a.date + "T" + a.startTime)
-          const dateB = new Date(b.date + "T" + b.startTime)
-          return dateB.getTime() - dateA.getTime() // Most recent first
-        })
+          const customerApts = customerAppointments.get(apt.customerId) || []
+          const sortedApts = [...customerApts].sort((a, b) => {
+            const dateA = new Date(a.date + "T" + a.startTime)
+            const dateB = new Date(b.date + "T" + b.startTime)
+            return dateB.getTime() - dateA.getTime() // Most recent first
+          })
 
-        // Calculate total reservations and last visit
-        const totalReservations = customerApts.length
-        const lastVisit = sortedApts.length > 0 ? sortedApts[0].date : "N/A"
+          // Calculate total reservations and last visit
+          const totalReservations = customerApts.length
+          const lastVisit = sortedApts.length > 0 ? sortedApts[0].date : "N/A"
 
-        // Build history (excluding current appointment)
-        const history = sortedApts
-          .filter((a) => a.id !== apt.id)
-          .map((a) => ({
-            date: a.date,
-            service: a.serviceName,
-            status: "completed" as const, // Default status for history
-          }))
+          // Build history (excluding current appointment)
+          const history = sortedApts
+            .filter((a) => a.id !== apt.id)
+            .map((a) => ({
+              date: a.date,
+              service: a.serviceName,
+              status: "completed" as const, // Default status for history
+            }))
 
-        // Convert time from 24-hour to 12-hour format
-        const [hours, minutes] = apt.startTime.split(":")
-        const hour24 = parseInt(hours)
-        const hour12 = hour24 === 0 ? 12 : hour24 > 12 ? hour24 - 12 : hour24
-        const period = hour24 >= 12 ? "PM" : "AM"
-        const time12 = `${hour12}:${minutes} ${period}`
+          // Convert time from 24-hour to 12-hour format
+          const [hours, minutes] = apt.startTime.split(":")
+          const hour24 = parseInt(hours)
+          const hour12 = hour24 === 0 ? 12 : hour24 > 12 ? hour24 - 12 : hour24
+          const period = hour24 >= 12 ? "PM" : "AM"
+          const time12 = `${hour12}:${minutes} ${period}`
 
-        // Determine status (default to "confirmed" for new appointments)
-        let status: "confirmed" | "completed" | "cancelled" = "confirmed"
-        // You can add logic here to determine status based on date or other criteria
-        const appointmentDate = new Date(apt.date + "T" + apt.startTime)
-        const now = new Date()
-        if (appointmentDate < now) {
-          status = "completed" // Past appointments are completed
-        }
+          // Determine status (default to "confirmed" for new appointments)
+          let status: "confirmed" | "completed" | "cancelled" = "confirmed"
+          // You can add logic here to determine status based on date or other criteria
+          const appointmentDate = new Date(apt.date + "T" + apt.startTime)
+          const now = new Date()
+          if (appointmentDate < now) {
+            status = "completed" // Past appointments are completed
+          }
 
-        // Generate a numeric ID from the appointment UUID for compatibility
-        const numericId = apt.id ? parseInt(apt.id.replace(/-/g, "").substring(0, 8), 16) || Date.now() : Date.now()
+          // Generate a numeric ID from the appointment UUID for compatibility
+          const numericId = apt.id ? parseInt(apt.id.replace(/-/g, "").substring(0, 8), 16) || Date.now() : Date.now()
 
-        return {
-          id: numericId,
-          clientName: customer.fullName,
-          clientEmail: customer.email || "",
-          clientPhone: customer.phone,
-          date: apt.date,
-          time: time12,
-          service: apt.serviceName,
-          status: status as "confirmed" | "completed" | "cancelled",
-          totalReservations: totalReservations,
-          lastVisit: lastVisit,
-          history: history,
-          // Store the original appointment ID for reference
-          appointmentId: apt.id,
-        }
+          return {
+            id: numericId,
+            clientName: customer.fullName,
+            clientEmail: customer.email || "",
+            clientPhone: customer.phone,
+            date: apt.date,
+            time: time12,
+            service: apt.serviceName,
+            status: status as "confirmed" | "completed" | "cancelled",
+            totalReservations: totalReservations,
+            lastVisit: lastVisit,
+            history: history,
+            // Store the original appointment ID for reference
+            appointmentId: apt.id,
+          }
       }).filter((res) => res !== null) as Reservation[]
 
       setReservations(newReservations)
