@@ -151,6 +151,9 @@ export default function CustomersPage() {
           notes: formData.appointmentNotes || undefined,
         })
 
+        // Wait a bit for the reload triggered by addAppointment to complete
+        await new Promise(resolve => setTimeout(resolve, 500))
+
         toast({
           title: "Cliente y cita creados",
           description: `${formData.name} ha sido agregado con una cita programada`,
@@ -167,7 +170,7 @@ export default function CustomersPage() {
         })
       }
 
-      // Reload CRM store to ensure data is synced
+      // Reload CRM store to ensure all data is synced (addAppointment already triggers reload, but this ensures customer data is also refreshed)
       await new Promise(resolve => setTimeout(resolve, 300))
       crmStore.reload()
 
