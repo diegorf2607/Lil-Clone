@@ -894,7 +894,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
           status: "Confirmada",
         }
       })
-  }, [crmStore.isLoaded, crmStore.data])
+  }, [crmStore.isLoaded, crmStore.data?.appointments, crmStore.data?.customers])
 
   // Calculate recent reservations from reservations state
   const recentReservations = useMemo(() => {
