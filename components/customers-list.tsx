@@ -35,6 +35,18 @@ export function CustomersList({ customers, appointments, onCustomerClick }: Cust
     }
   }
 
+  // Check if birthday is today
+  const isBirthdayToday = (birthdate: string): boolean => {
+    if (!birthdate) return false
+    try {
+      const birth = parseISO(birthdate)
+      const today = new Date()
+      return birth.getMonth() === today.getMonth() && birth.getDate() === today.getDate()
+    } catch {
+      return false
+    }
+  }
+
   // Check if birthday is soon (within 7 days)
   const isBirthdaySoon = (birthdate: string): boolean => {
     const nextBirthday = getNextBirthday(birthdate)
@@ -91,6 +103,7 @@ export function CustomersList({ customers, appointments, onCustomerClick }: Cust
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredCustomers.map((customer, index) => {
           const nextBirthday = customer.birthdate ? getNextBirthday(customer.birthdate) : null
+          const birthdayToday = customer.birthdate ? isBirthdayToday(customer.birthdate) : false
           const birthdaySoon = customer.birthdate ? isBirthdaySoon(customer.birthdate) : false
           const customerImages = getCustomerImages(customer.id)
           const customerAppointments = getCustomerAppointments(customer.id)
@@ -105,10 +118,19 @@ export function CustomersList({ customers, appointments, onCustomerClick }: Cust
               className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 hover:border-[#AFA1FD] hover:shadow-md transition-all cursor-pointer"
             >
               <div className="flex items-start justify-between mb-4">
-                <div className="w-12 h-12 bg-gradient-to-br from-[#AFA1FD] to-[#8B7FE8] rounded-full flex items-center justify-center">
+                <div className="w-12 h-12 bg-gradient-to-br from-[#AFA1FD] to-[#8B7FE8] rounded-full flex items-center justify-center relative">
                   <User className="w-6 h-6 text-white" />
+                  {birthdayToday && (
+                    <span className="absolute -top-1 -right-1 text-yellow-500 text-2xl">⭐</span>
+                  )}
                 </div>
-                {birthdaySoon && (
+                {birthdayToday && (
+                  <Badge className="bg-yellow-200 text-yellow-900 border-yellow-400 font-bold">
+                    <Gift className="w-3 h-3 mr-1" />
+                    ¡Cumple hoy!
+                  </Badge>
+                )}
+                {!birthdayToday && birthdaySoon && (
                   <Badge className="bg-yellow-100 text-yellow-800 border-yellow-300">
                     <Gift className="w-3 h-3 mr-1" />
                     Cumple pronto

@@ -170,9 +170,9 @@ export default function CustomersPage() {
         })
       }
 
-      // Reload CRM store to ensure all data is synced (addAppointment already triggers reload, but this ensures customer data is also refreshed)
-      await new Promise(resolve => setTimeout(resolve, 300))
-      crmStore.reload()
+      // Wait for reload triggered by upsertCustomer/addAppointment to complete
+      // No need to call reload() again as it's already triggered by the operations above
+      await new Promise(resolve => setTimeout(resolve, 500))
 
       // Reset form
       setFormData({
