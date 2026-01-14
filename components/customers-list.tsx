@@ -228,8 +228,6 @@ export function CustomersList({ customers, appointments, onCustomerClick }: Cust
         )}
       </div>
 
-      {/* Old Grid View (commented out for now) */}
-      {/* <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredCustomers.map((customer, index) => {
           const nextBirthday = customer.birthdate ? getNextBirthday(customer.birthdate) : null
           const birthdayToday = customer.birthdate ? isBirthdayToday(customer.birthdate) : false
