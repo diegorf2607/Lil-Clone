@@ -11,7 +11,9 @@ import { WhatsAppWidget } from "@/components/whatsapp-widget"
 import { WhatsAppHelpButton } from "@/components/whatsapp-help-button"
 import { BirthdateField } from "@/components/birthdate-field"
 import { InspirationUploader } from "@/components/inspiration-uploader"
-import { useLocalStorageStore } from "@/lib/hooks/use-local-storage-store"
+import { useCRMStore } from "@/lib/hooks/use-crm-store"
+import { useServices } from "@/lib/hooks/use-services"
+import { useBusinessInfo } from "@/lib/hooks/use-business-info"
 import type { InspirationImage } from "@/lib/types/crm"
 
 type BookingStep = "service" | "datetime" | "contact" | "confirm" | "success"
@@ -94,7 +96,7 @@ const timeSlots = [
 ]
 
 export default function PublicBookingPage({ params }: { params: { slug: string } }) {
-  const crmStore = useLocalStorageStore()
+  const crmStore = useCRMStore()
   const [step, setStep] = useState<BookingStep>("service")
   const [bookingData, setBookingData] = useState<BookingData>({
     service: null,
@@ -118,29 +120,65 @@ export default function PublicBookingPage({ params }: { params: { slug: string }
     { id: 3, name: "Sede Sur", address: "Av. Sur 789, Zona Sur", phone: "+1 234 567 8902" },
   ])
 
-  useEffect(() => {
-    // Load brand color and business info from localStorage
-    const savedColor = localStorage.getItem("lilaBrandColor")
-    const savedBusinessInfo = localStorage.getItem("lilaBusinessInfo")
-    const savedServices = localStorage.getItem("lilaServices")
-    const savedLocations = localStorage.getItem("lilaLocations")
+  // Use Supabase hooks
+  const { services: supabaseServices, isLoaded: servicesLoaded } = useServices()
+  const { businessInfo: supabaseBusinessInfo, isLoaded: businessInfoLoaded } = useBusinessInfo()
 
-    if (savedColor) setBrandColor(savedColor)
-    if (savedBusinessInfo) {
-      const info = JSON.parse(savedBusinessInfo)
-      setBusinessInfo(info)
-      if (info.locations && info.locations.length > 0) {
-        setLocations(info.locations)
+  useEffect(() => {
+    // Load from Supabase first, then fallback to localStorage
+    if (businessInfoLoaded && supabaseBusinessInfo) {
+      setBusinessInfo({
+        name: supabaseBusinessInfo.name || "",
+        phone: supabaseBusinessInfo.phone || "",
+        email: supabaseBusinessInfo.email || "",
+        address: supabaseBusinessInfo.address || "",
+        logo: supabaseBusinessInfo.logo || "",
+      })
+      if (supabaseBusinessInfo.brandColor) {
+        setBrandColor(supabaseBusinessInfo.brandColor)
+      }
+    } else if (businessInfoLoaded) {
+      // Fallback to localStorage
+      const savedColor = localStorage.getItem("lilaBrandColor")
+      const savedBusinessInfo = localStorage.getItem("lilaBusinessInfo")
+      if (savedColor) setBrandColor(savedColor)
+      if (savedBusinessInfo) {
+        const info = JSON.parse(savedBusinessInfo)
+        setBusinessInfo(info)
+        if (info.locations && info.locations.length > 0) {
+          setLocations(info.locations)
+        }
       }
     }
-    if (savedServices) {
-      const allServices = JSON.parse(savedServices)
-      setServices(allServices.filter((s: Service) => s.showPublic))
+  }, [businessInfoLoaded, supabaseBusinessInfo])
+
+  useEffect(() => {
+    if (servicesLoaded && supabaseServices.length > 0) {
+      setServices(supabaseServices.filter((s) => s.showPublic).map((s) => ({
+        id: parseInt(s.id) || Date.now(),
+        name: s.name,
+        description: s.description,
+        price: s.price,
+        duration: s.duration,
+        showPublic: s.showPublic,
+        esPack: s.esPack,
+        subservicios: s.subservicios,
+        image: s.image,
+      })))
+    } else if (servicesLoaded) {
+      // Fallback to localStorage
+      const savedServices = localStorage.getItem("lilaServices")
+      if (savedServices) {
+        const allServices = JSON.parse(savedServices)
+        setServices(allServices.filter((s: Service) => s.showPublic))
+      }
     }
+    // Also load locations from localStorage (will be migrated later)
+    const savedLocations = localStorage.getItem("lilaLocations")
     if (savedLocations) {
       setLocations(JSON.parse(savedLocations))
     }
-  }, [])
+  }, [servicesLoaded, supabaseServices])
 
   const handleServiceSelect = (service: Service) => {
     setBookingData({ ...bookingData, service })
@@ -418,7 +456,7 @@ export default function PublicBookingPage({ params }: { params: { slug: string }
                         </div>
                         <div className="text-right ml-6">
                           <p className="text-4xl font-bold" style={{ color: brandColor }}>
-                            ${service.price}
+                            S/. {service.price}
                           </p>
                         </div>
                       </div>

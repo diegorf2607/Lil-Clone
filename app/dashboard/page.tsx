@@ -18,7 +18,9 @@ import { useAuth } from "@/lib/auth-context"
 import { usePermissions } from "@/lib/use-permissions"
 import { useRouter, usePathname } from "next/navigation"
 import { useMemo } from "react"
-import { useLocalStorageStore } from "@/lib/hooks/use-local-storage-store"
+import { useCRMStore } from "@/lib/hooks/use-crm-store"
+import { useServices } from "@/lib/hooks/use-services"
+import { useBusinessInfo } from "@/lib/hooks/use-business-info"
 import { CustomersList } from "@/components/customers-list"
 import { DailyCalendarView } from "@/components/daily-calendar-view"
 import { StaffExtraMinutesForm } from "@/components/staff-extra-minutes-form"
@@ -152,7 +154,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
   const router = useRouter()
   const pathname = usePathname()
   const permissions = usePermissions()
-  const crmStore = useLocalStorageStore()
+  const crmStore = useCRMStore()
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -465,7 +467,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
     notes: "",
   })
 
-  const handleCreateAppointment = (day: number, time: string) => {
+  const handleCreateAppointment = async (day: number, time: string) => {
     console.log("[v0] Opening appointment/occupation modal for", { day, time })
 
     const selectedDay = weekDays[day]
@@ -511,7 +513,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
     setIsAppointmentModalOpen(true)
   }
 
-  const handleSaveAppointment = () => {
+  const handleSaveAppointment = async () => {
     if (!selectedTimeSlot) return
 
     if (entryType === "appointment") {
@@ -646,19 +648,34 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
       if (crmStore.isLoaded) {
         // Get or create customer
         const existingCustomer = crmStore.getCustomerByPhone(newAppointment.clientPhone || "")
-        const customerId = existingCustomer?.id || `customer_${Date.now()}`
         
-        crmStore.upsertCustomer({
-          id: customerId,
+        // Upsert customer (will get UUID from Supabase)
+        await crmStore.upsertCustomer({
+          id: existingCustomer?.id || `temp_${Date.now()}`, // Temporary, will be replaced
           fullName: newAppointment.client,
           phone: newAppointment.clientPhone || "",
           email: newAppointment.clientEmail,
         })
 
-        // Get staff ID
-        const staffId = newAppointment.staffMember
-          ? staffMembers.find((s) => s.name === newAppointment.staffMember)?.id.toString() || `staff_${Date.now()}`
-          : `staff_${Date.now()}`
+        // Get the customer ID after upsert (wait a bit for it to be saved)
+        await new Promise(resolve => setTimeout(resolve, 100))
+        const updatedCustomer = crmStore.getCustomerByPhone(newAppointment.clientPhone || "")
+        if (!updatedCustomer || !updatedCustomer.id) {
+          console.error("No se pudo obtener el ID del cliente después de guardar")
+          return
+        }
+        const customerId = updatedCustomer.id
+
+        // Get staff ID - find existing staff by name or use null
+        let staffId: string | null = null
+        if (newAppointment.staffMember) {
+          const staffMember = staffMembers.find((s) => s.name === newAppointment.staffMember)
+          if (staffMember) {
+            // Check if staff exists in CRM store
+            const existingStaff = crmStore.data.staff.find((s) => s.name === newAppointment.staffMember)
+            staffId = existingStaff?.id || null
+          }
+        }
 
         // Get date from selected time slot - convert from DD/MM to YYYY-MM-DD
         const selectedDay = weekDays[selectedTimeSlot.day]
@@ -678,10 +695,10 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
           time24 = `${hour24.toString().padStart(2, "0")}:${minutes}`
         }
 
-        crmStore.addAppointment({
-          id: appointment.id,
+        await crmStore.addAppointment({
+          id: `temp_${Date.now()}`, // Temporary, will be replaced by Supabase UUID
           customerId,
-          staffId,
+          staffId: staffId || undefined,
           serviceName: newAppointment.service,
           date: fullDate,
           startTime: time24,
@@ -837,7 +854,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
     setSubServices(subServices.filter((s) => s.id !== id))
   }
 
-  const handleSaveService = () => {
+  const handleSaveService = async () => {
     if (!serviceFormData.name || !serviceFormData.price) {
       // Removed duration validation for packs
       alert("Por favor completa todos los campos requeridos")
@@ -882,11 +899,31 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
       availableDays: serviceFormData.customDays ? serviceFormData.availableDays : undefined,
     }
 
+    let updatedServices: Service[]
     if (editingServiceId) {
-      setServices(services.map((s) => (s.id === editingServiceId ? newService : s)))
+      updatedServices = services.map((s) => (s.id === editingServiceId ? newService : s))
     } else {
-      setServices([...services, newService])
+      updatedServices = [...services, newService]
     }
+    setServices(updatedServices)
+
+    // Save to Supabase or localStorage
+    await saveServicesToSupabase(updatedServices.map((s) => ({
+      id: s.id.toString(),
+      name: s.name,
+      description: s.description,
+      image: s.image,
+      duration: s.duration,
+      price: s.price,
+      showPublic: s.showPublic,
+      requiereAdelanto: s.requiereAdelanto,
+      montoAdelanto: s.montoAdelanto,
+      metodoPago: s.metodoPago,
+      esPack: s.esPack,
+      subservicios: s.subservicios,
+      availableDays: s.availableDays,
+      customDays: !!s.availableDays,
+    })))
 
     setIsServiceModalOpen(false)
     setServiceFormData({
@@ -913,9 +950,29 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
     })
   }
 
-  const handleDeleteService = (id: number) => {
+  const handleDeleteService = async (id: number) => {
     if (confirm("¿Estás seguro de que deseas eliminar este servicio?")) {
-      setServices(services.filter((s) => s.id !== id))
+      const updatedServices = services.filter((s) => s.id !== id)
+      setServices(updatedServices)
+      // Save to Supabase or localStorage
+      await saveServicesToSupabase(updatedServices.map((s) => ({
+        id: s.id.toString(),
+        name: s.name,
+        description: s.description,
+        image: s.image,
+        duration: s.duration,
+        price: s.price,
+        showPublic: s.showPublic,
+        requiereAdelanto: s.requiereAdelanto,
+        montoAdelanto: s.montoAdelanto,
+        metodoPago: s.metodoPago,
+        esPack: s.esPack,
+        subservicios: s.subservicios,
+        availableDays: s.availableDays,
+        customDays: !!s.availableDays,
+      })))
+      // Also save to localStorage as backup
+      localStorage.setItem("lilaServices", JSON.stringify(updatedServices))
     }
   }
 
@@ -992,14 +1049,59 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
 
   const logoInputRef = useRef<HTMLInputElement>(null) // Declare logoInputRef
 
-  useEffect(() => {
-    const savedBusinessInfo = localStorage.getItem("lilaBusinessInfo")
-    if (savedBusinessInfo) {
-      setBusinessInfo(JSON.parse(savedBusinessInfo))
-    }
-  }, [])
+  // Use Supabase hooks
+  const { businessInfo: supabaseBusinessInfo, isLoaded: businessInfoLoaded, saveBusinessInfo: saveBusinessInfoToSupabase } = useBusinessInfo()
+  const { services: supabaseServices, isLoaded: servicesLoaded, saveServices: saveServicesToSupabase } = useServices()
 
-  const handleSaveBusinessInfo = () => {
+  // Sync business info from Supabase
+  useEffect(() => {
+    if (businessInfoLoaded && supabaseBusinessInfo) {
+      setBusinessInfo({
+        name: supabaseBusinessInfo.name || "",
+        email: supabaseBusinessInfo.email || "",
+        phone: supabaseBusinessInfo.phone || "",
+        address: supabaseBusinessInfo.address || "",
+        logo: supabaseBusinessInfo.logo || "",
+        brandColor: supabaseBusinessInfo.brandColor || "#AFA1FD",
+        publicSlug: supabaseBusinessInfo.publicLink || "",
+      })
+    } else if (businessInfoLoaded && !supabaseBusinessInfo) {
+      // Fallback to localStorage if Supabase not configured
+      const savedBusinessInfo = localStorage.getItem("lilaBusinessInfo")
+      if (savedBusinessInfo) {
+        setBusinessInfo(JSON.parse(savedBusinessInfo))
+      }
+    }
+  }, [businessInfoLoaded, supabaseBusinessInfo])
+
+  // Sync services from Supabase
+  useEffect(() => {
+    if (servicesLoaded && supabaseServices.length > 0) {
+      setServices(supabaseServices.map((s) => ({
+        id: parseInt(s.id) || Date.now(),
+        name: s.name,
+        description: s.description,
+        image: s.image,
+        duration: s.duration,
+        price: s.price,
+        showPublic: s.showPublic,
+        requiereAdelanto: s.requiereAdelanto,
+        montoAdelanto: s.montoAdelanto,
+        metodoPago: s.metodoPago,
+        esPack: s.esPack,
+        subservicios: s.subservicios,
+        availableDays: s.availableDays,
+      })))
+    } else if (servicesLoaded && supabaseServices.length === 0) {
+      // Fallback to localStorage if Supabase not configured
+      const savedServices = localStorage.getItem("lilaServices")
+      if (savedServices) {
+        setServices(JSON.parse(savedServices))
+      }
+    }
+  }, [servicesLoaded, supabaseServices])
+
+  const handleSaveBusinessInfo = async () => {
     // Validate required fields
     if (!businessInfo.name || !businessInfo.email || !businessInfo.phone) {
       setSaveMessage("Por favor completa todos los campos requeridos")
@@ -1007,8 +1109,16 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
       return
     }
 
-    // Simulate saving to database
-    localStorage.setItem("lilaBusinessInfo", JSON.stringify(businessInfo)) // Save to localStorage
+    // Save to Supabase or localStorage
+    await saveBusinessInfoToSupabase({
+      name: businessInfo.name,
+      email: businessInfo.email,
+      phone: businessInfo.phone,
+      address: businessInfo.address,
+      logo: businessInfo.logo,
+      brandColor: businessInfo.brandColor,
+      publicLink: businessInfo.publicSlug,
+    })
     setSaveMessage("Cambios guardados exitosamente")
     setTimeout(() => setSaveMessage(null), 3000)
   }
@@ -1019,10 +1129,18 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
       setLogoUploading(true)
       // Simulate upload and create preview URL
       const reader = new FileReader()
-      reader.onloadend = () => {
+      reader.onloadend = async () => {
         const updatedInfo = { ...businessInfo, logo: reader.result as string }
         setBusinessInfo(updatedInfo)
-        localStorage.setItem("lilaBusinessInfo", JSON.stringify(updatedInfo))
+        await saveBusinessInfoToSupabase({
+          name: updatedInfo.name,
+          email: updatedInfo.email,
+          phone: updatedInfo.phone,
+          address: updatedInfo.address,
+          logo: updatedInfo.logo,
+          brandColor: updatedInfo.brandColor,
+          publicLink: updatedInfo.publicSlug,
+        })
         setLogoUploading(false)
         setSaveMessage("Logo subido exitosamente")
         setTimeout(() => setSaveMessage(null), 3000)
@@ -1053,9 +1171,37 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
     setTimeout(() => setSaveMessage(null), 3000)
   }
 
-  const handleApplyBrandColor = () => {
+  const handleApplyBrandColor = async () => {
+    // Save brand color to Supabase or localStorage
+    await saveBusinessInfoToSupabase({
+      name: businessInfo.name,
+      email: businessInfo.email,
+      phone: businessInfo.phone,
+      address: businessInfo.address,
+      logo: businessInfo.logo,
+      brandColor: businessInfo.brandColor,
+      publicLink: businessInfo.publicSlug,
+    })
+    // Also save services
+    await saveServicesToSupabase(services.map((s) => ({
+      id: s.id.toString(),
+      name: s.name,
+      description: s.description,
+      image: s.image,
+      duration: s.duration,
+      price: s.price,
+      showPublic: s.showPublic,
+      requiereAdelanto: s.requiereAdelanto,
+      montoAdelanto: s.montoAdelanto,
+      metodoPago: s.metodoPago,
+      esPack: s.esPack,
+      subservicios: s.subservicios,
+      availableDays: s.availableDays,
+      customDays: !!s.availableDays,
+    })))
+    // Also save to localStorage as backup
     localStorage.setItem("lilaBrandColor", businessInfo.brandColor)
-    localStorage.setItem("lilaBusinessInfo", JSON.stringify(businessInfo)) // Also save other business info
+    localStorage.setItem("lilaBusinessInfo", JSON.stringify(businessInfo))
     localStorage.setItem("lilaServices", JSON.stringify(services))
     setSaveMessage("Color de marca aplicado exitosamente")
     setTimeout(() => setSaveMessage(null), 3000)

@@ -19,11 +19,8 @@ export function Navbar() {
     return () => window.removeEventListener("scroll", handleScroll)
   }, [])
 
-  const navLinks = [
-    { href: "#producto", label: "Producto" },
-    { href: "#precios", label: "Precios" },
-    { href: "#faq", label: "Preguntas frecuentes" },
-  ]
+  // Navigation links removed - only keeping login button
+  const navLinks: never[] = []
 
   return (
     <motion.nav
@@ -41,20 +38,7 @@ export function Navbar() {
             <Image src="/lila-logo.png" alt="Lilá" width={120} height={40} className="h-10 w-auto" priority />
           </motion.a>
 
-          {/* Desktop Navigation */}
-          <div className="hidden lg:flex items-center gap-8">
-            {navLinks.map((link, index) => (
-              <motion.a
-                key={link.href}
-                href={link.href}
-                className="text-sm font-medium text-foreground/80 hover:text-foreground transition-colors py-2"
-                whileHover={{ scale: 1.05 }}
-                transition={{ duration: 0.2 }}
-              >
-                {link.label}
-              </motion.a>
-            ))}
-          </div>
+          {/* Desktop Navigation - Removed */}
 
           {/* Desktop Login Button */}
           <motion.div
@@ -95,22 +79,9 @@ export function Navbar() {
               transition={{ duration: 0.3 }}
             >
               <div className="flex flex-col gap-4">
-                {navLinks.map((link, index) => (
-                  <motion.a
-                    key={link.href}
-                    href={link.href}
-                    className="text-sm font-medium text-foreground/80 hover:text-foreground transition-colors py-2"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.05 }}
-                  >
-                    {link.label}
-                  </motion.a>
-                ))}
                 {/* Mobile Login Button */}
                 <Link href="/login">
-                  <Button size="lg" className="bg-[#2C293F] text-white hover:brightness-110 w-full mt-2">
+                  <Button size="lg" className="bg-[#2C293F] text-white hover:brightness-110 w-full">
                     Iniciar sesión
                   </Button>
                 </Link>

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
-import { useLocalStorageStore } from "@/lib/hooks/use-local-storage-store"
+import { useCRMStore } from "@/lib/hooks/use-crm-store"
 import { CustomersList } from "@/components/customers-list"
 import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
@@ -26,7 +26,7 @@ interface Service {
 export default function CustomersPage() {
   const { user, isLoading } = useAuth()
   const router = useRouter()
-  const crmStore = useLocalStorageStore()
+  const crmStore = useCRMStore()
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [services, setServices] = useState<Service[]>([])
   const [formData, setFormData] = useState({

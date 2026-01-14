@@ -11,6 +11,8 @@ import { Check, Calendar, Clock, MapPin, ArrowLeft, Upload, X, ImageIcon } from 
 import { WhatsAppWidget } from "@/components/whatsapp-widget"
 import { BirthdateField } from "@/components/birthdate-field"
 import { InspirationUploader } from "@/components/inspiration-uploader"
+import { useCRMStore } from "@/lib/hooks/use-crm-store"
+import { useServices } from "@/lib/hooks/use-services"
 import type { InspirationImage } from "@/lib/types/crm"
 
 type Step = "service" | "location" | "datetime" | "contact" | "confirmation"
@@ -35,38 +37,7 @@ interface BookingData {
   phone: string
 }
 
-const services: Service[] = [
-  {
-    id: 1,
-    name: "Manicura Clásica",
-    description: "Limpieza, corte y pulido",
-    price: 35,
-    duration: 30,
-    requiereAdelanto: false,
-    montoAdelanto: 0,
-    metodoPago: "no-aplica",
-  },
-  {
-    id: 2,
-    name: "Pedicura Deluxe",
-    description: "Tratamiento completo con masaje",
-    price: 55,
-    duration: 45,
-    requiereAdelanto: true,
-    montoAdelanto: 20,
-    metodoPago: "online",
-  },
-  {
-    id: 3,
-    name: "Diseño de Uñas",
-    description: "Diseño personalizado con gel",
-    price: 75,
-    duration: 60,
-    requiereAdelanto: true,
-    montoAdelanto: 30,
-    metodoPago: "transferencia",
-  },
-]
+// Services will be loaded from useServices hook - same source as dashboard
 
 const timeSlots = [
   "9:00 AM",
@@ -113,6 +84,8 @@ const locations = [
 ]
 
 export default function DemoPage() {
+  const crmStore = useCRMStore()
+  const { services: supabaseServices, isLoaded: servicesLoaded } = useServices()
   const [step, setStep] = useState<Step>("service")
   const [selectedService, setSelectedService] = useState<string>("")
   const [selectedLocation, setSelectedLocation] = useState<string>("")
@@ -127,6 +100,22 @@ export default function DemoPage() {
   const [cardNumber, setCardNumber] = useState("")
   const [cardExpiry, setCardExpiry] = useState("")
   const [cardCvc, setCardCvc] = useState("")
+
+  // Map Supabase services to demo format, only show public services
+  const services: Service[] = servicesLoaded
+    ? supabaseServices
+        .filter((s) => s.showPublic)
+        .map((s) => ({
+          id: parseInt(s.id) || Date.now(),
+          name: s.name,
+          description: s.description || "",
+          price: s.price,
+          duration: s.duration,
+          requiereAdelanto: s.requiereAdelanto || false,
+          montoAdelanto: s.montoAdelanto || 0,
+          metodoPago: s.metodoPago || "no-aplica",
+        }))
+    : []
 
 
   const handleServiceSelect = (service: string) => {
@@ -183,75 +172,71 @@ export default function DemoPage() {
     }
   }
 
-  const handleConfirmBooking = () => {
-    // Save to localStorage using CRM store
-    if (typeof window !== "undefined") {
-      const crmData = JSON.parse(localStorage.getItem("beauty_crm_v1") || JSON.stringify({ customers: [], staff: [], appointments: [] }))
-      
-      // Generate IDs
-      const customerId = `customer_${Date.now()}`
-      const appointmentId = `appointment_${Date.now()}`
-      const staffId = `staff_${Date.now()}`
+  const handleConfirmBooking = async () => {
+    if (!contactInfo.name || !contactInfo.phone) {
+      alert("Por favor completa nombre y teléfono")
+      return
+    }
 
-      // Upsert customer
-      const existingCustomerIndex = (crmData.customers || []).findIndex(
-        (c: any) => c.phone === contactInfo.phone
-      )
-      const customer = {
-        id: customerId,
+    // Convert date from DD/MM/YYYY to YYYY-MM-DD if needed
+    let dateStr = selectedDate
+    if (dateStr.includes("/")) {
+      const [day, month, year] = dateStr.split("/")
+      dateStr = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`
+    }
+
+    // Convert time to 24-hour format if needed
+    let time24 = selectedTime
+    if (selectedTime.includes("AM") || selectedTime.includes("PM")) {
+      const [time, period] = selectedTime.split(" ")
+      const [hours, minutes] = time.split(":")
+      let hour24 = parseInt(hours)
+      if (period === "PM" && hour24 !== 12) hour24 += 12
+      if (period === "AM" && hour24 === 12) hour24 = 0
+      time24 = `${hour24.toString().padStart(2, "0")}:${minutes}`
+    }
+
+    try {
+      // Upsert customer using CRM store (will save to Supabase if configured)
+      await crmStore.upsertCustomer({
+        id: `temp_${Date.now()}`, // Temporary ID, will be replaced by Supabase UUID
         fullName: contactInfo.name,
         phone: contactInfo.phone,
-        email: contactInfo.email,
+        email: contactInfo.email || undefined,
         birthdate: contactInfo.birthdate || undefined,
+      })
+
+      // Get the customer ID after upsert (wait a bit for it to be saved)
+      await new Promise(resolve => setTimeout(resolve, 200))
+      const customer = crmStore.getCustomerByPhone(contactInfo.phone)
+      
+      if (!customer || !customer.id) {
+        throw new Error("No se pudo obtener el ID del cliente después de guardar")
       }
       
-      if (existingCustomerIndex >= 0) {
-        crmData.customers[existingCustomerIndex] = { ...crmData.customers[existingCustomerIndex], ...customer }
-      } else {
-        crmData.customers = [...(crmData.customers || []), customer]
-      }
+      const customerId = customer.id
 
-      // Convert date from DD/MM/YYYY to YYYY-MM-DD if needed
-      let dateStr = selectedDate
-      if (dateStr.includes("/")) {
-        const [day, month, year] = dateStr.split("/")
-        dateStr = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`
-      }
+      // For staff, use null (will be handled by Supabase or can be null)
+      const staffId = null
 
-      // Convert time to 24-hour format if needed
-      let time24 = selectedTime
-      if (selectedTime.includes("AM") || selectedTime.includes("PM")) {
-        const [time, period] = selectedTime.split(" ")
-        const [hours, minutes] = time.split(":")
-        let hour24 = parseInt(hours)
-        if (period === "PM" && hour24 !== 12) hour24 += 12
-        if (period === "AM" && hour24 === 12) hour24 = 0
-        time24 = `${hour24.toString().padStart(2, "0")}:${minutes}`
-      }
-
-      // Add appointment
-      const appointment = {
-        id: appointmentId,
-        customerId,
-        staffId,
+      // Add appointment using CRM store (will save to Supabase if configured)
+      await crmStore.addAppointment({
+        id: `temp_${Date.now()}`, // Temporary ID, will be replaced by Supabase UUID
+        customerId: customerId,
+        staffId: staffId,
         serviceName: selectedService,
         date: dateStr,
         startTime: time24,
         baseDuration: 30, // Default duration
         inspirationImages: inspirationImages,
         notes: comments || undefined,
-      }
-      crmData.appointments = [...(crmData.appointments || []), appointment]
-      
-      // Ensure staff array exists
-      if (!crmData.staff) {
-        crmData.staff = []
-      }
+      })
 
-      localStorage.setItem("beauty_crm_v1", JSON.stringify(crmData))
+      setStep("success")
+    } catch (error) {
+      console.error("Error saving booking:", error)
+      alert("Hubo un error al guardar la reserva. Por favor intenta de nuevo.")
     }
-    
-    setStep("success")
   }
 
   const handleBack = () => {
@@ -388,7 +373,7 @@ export default function DemoPage() {
                       </div>
                       <div className="text-right ml-6">
                         <p className="text-4xl font-bold bg-gradient-to-r from-[#AFA1FD] to-[#9890E8] bg-clip-text text-transparent">
-                          ${service.price}
+                          S/. {service.price}
                         </p>
                       </div>
                     </div>
