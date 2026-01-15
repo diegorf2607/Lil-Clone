@@ -1101,12 +1101,13 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
             // Store the original appointment ID for reference
             appointmentId: apt.id,
           }
-      }).filter((res) => res !== null) as Reservation[]
+        }).filter((res) => res !== null) as Reservation[]
 
-      setReservations(newReservations)
-    } else if (crmStore.isLoaded && crmStore.data && (!crmStore.data.appointments || crmStore.data.appointments.length === 0)) {
-      // No appointments yet, keep empty array
-      setReservations([])
+        setReservations(newReservations)
+      } else if (crmStore.isLoaded && crmStore.data && (!crmStore.data.appointments || crmStore.data.appointments.length === 0)) {
+        // No appointments yet, keep empty array
+        setReservations([])
+      }
     }
   }, [crmStore.isLoaded, crmStore.data])
 
