@@ -558,7 +558,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
         await crmStore.addAppointment({
           id: `temp_${Date.now()}`, // Temporary, will be replaced by Supabase UUID
           customerId,
-          staffId: staffId || undefined,
+          staffId: staffId || "",
           serviceName: newAppointment.service,
           date: fullDate,
           startTime: time24,
@@ -1003,7 +1003,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
       setServices(supabaseServices.map((s) => ({
         id: parseInt(s.id) || Date.now(),
         name: s.name,
-        description: s.description,
+        description: s.description || "",
         image: s.image,
         duration: s.duration,
         price: s.price,
@@ -1013,7 +1013,15 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
         metodoPago: s.metodoPago,
         esPack: s.esPack,
         subservicios: s.subservicios,
-        availableDays: s.availableDays,
+        availableDays: s.availableDays ? {
+          monday: s.availableDays.monday ?? true,
+          tuesday: s.availableDays.tuesday ?? true,
+          wednesday: s.availableDays.wednesday ?? true,
+          thursday: s.availableDays.thursday ?? true,
+          friday: s.availableDays.friday ?? true,
+          saturday: s.availableDays.saturday ?? true,
+          sunday: s.availableDays.sunday ?? true,
+        } : undefined,
       })))
     } else if (servicesLoaded && supabaseServices.length === 0) {
       // Fallback to localStorage if Supabase not configured
