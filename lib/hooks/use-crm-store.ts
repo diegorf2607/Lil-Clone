@@ -144,18 +144,49 @@ export function useCRMStore() {
           }
 
           if (existingCustomer) {
-            const { error: updateError } = await supabase
+            // Only update email and birthdate if they're provided, don't overwrite existing full_name
+            // This prevents changing the customer name when creating new appointments
+            // Get current customer data first to check existing name
+            const { data: currentCustomer } = await supabase
               .from("customers")
-              .update({
-                full_name: customer.fullName,
-                email: customer.email || null,
-                birthdate: customer.birthdate || null,
-              })
+              .select("full_name, email, birthdate")
               .eq("id", existingCustomer.id)
+              .single()
+            
+            const updateData: {
+              email?: string | null
+              birthdate?: string | null
+              full_name?: string
+            } = {}
+            
+            // Only update email if provided and different
+            if (customer.email !== undefined && customer.email !== currentCustomer?.email) {
+              updateData.email = customer.email || null
+            }
+            
+            // Only update birthdate if provided and different
+            if (customer.birthdate !== undefined && customer.birthdate !== currentCustomer?.birthdate) {
+              updateData.birthdate = customer.birthdate || null
+            }
+            
+            // Only update full_name if the existing customer has no name or it's empty
+            // But don't overwrite with empty name
+            if (customer.fullName && customer.fullName.trim()) {
+              if (!currentCustomer?.full_name || currentCustomer.full_name.trim() === "") {
+                updateData.full_name = customer.fullName
+              }
+            }
+            
+            if (Object.keys(updateData).length > 0) {
+              const { error: updateError } = await supabase
+                .from("customers")
+                .update(updateData)
+                .eq("id", existingCustomer.id)
 
-            if (updateError) {
-              console.error("Error updating customer:", updateError)
-              throw updateError
+              if (updateError) {
+                console.error("Error updating customer:", updateError)
+                throw updateError
+              }
             }
           } else {
             // Don't pass id - let Supabase generate UUID automatically

@@ -1161,8 +1161,12 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
             status = "completed" // Past appointments are completed
           }
 
-          // Generate a numeric ID from the appointment UUID for compatibility
-          const numericId = apt.id ? parseInt(apt.id.replace(/-/g, "").substring(0, 8), 16) || Date.now() : Date.now()
+          // Generate a unique numeric ID from the appointment UUID for compatibility
+          // Use the full UUID hash to ensure uniqueness
+          const numericId = apt.id 
+            ? parseInt(apt.id.replace(/-/g, "").substring(0, 15), 16) || 
+              apt.id.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0)
+            : Date.now() + Math.random() * 1000
 
           return {
             id: numericId,
