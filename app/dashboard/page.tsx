@@ -518,10 +518,25 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
         })
 
         // Get the customer ID after upsert (wait a bit for it to be saved)
-        await new Promise(resolve => setTimeout(resolve, 100))
-        const updatedCustomer = crmStore.getCustomerByPhone(newAppointment.clientPhone || "")
+        await new Promise(resolve => setTimeout(resolve, 300))
+        
+        // Try to get customer by phone first, then by email if phone is empty
+        let updatedCustomer = null
+        if (newAppointment.clientPhone) {
+          updatedCustomer = crmStore.getCustomerByPhone(newAppointment.clientPhone)
+        }
+        
+        // If not found by phone, try by email
+        if (!updatedCustomer && newAppointment.clientEmail) {
+          updatedCustomer = crmStore.data.customers.find(c => c.email === newAppointment.clientEmail)
+        }
+        
         if (!updatedCustomer || !updatedCustomer.id) {
-          console.error("No se pudo obtener el ID del cliente después de guardar")
+          toast({
+            title: "Error",
+            description: "No se pudo obtener el ID del cliente después de guardar. Por favor intenta de nuevo.",
+            variant: "destructive",
+          })
           return
         }
         const customerId = updatedCustomer.id
@@ -537,17 +552,44 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
           }
         }
 
-        // Get date from selected time slot - convert from DD/MM to YYYY-MM-DD
-        const selectedDay = weekDays[selectedTimeSlot.day]
-        const dateStr = selectedDay.date // Format: "DD/MM"
-        const currentYear = new Date().getFullYear()
-        const [day, month] = dateStr.split("/")
-        const fullDate = `${currentYear}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`
+        // Get date from form if available, otherwise use selected time slot
+        let fullDate = ""
+        if (newAppointment.date) {
+          // If date is in YYYY-MM-DD format, use it directly
+          fullDate = newAppointment.date
+        } else if (selectedTimeSlot) {
+          // Otherwise, use selected time slot - convert from DD/MM to YYYY-MM-DD
+          const selectedDay = weekDays[selectedTimeSlot.day]
+          const dateStr = selectedDay.date // Format: "DD/MM"
+          const currentYear = new Date().getFullYear()
+          const [day, month] = dateStr.split("/")
+          fullDate = `${currentYear}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`
+        } else {
+          toast({
+            title: "Fecha requerida",
+            description: "Por favor selecciona una fecha",
+            variant: "destructive",
+          })
+          return
+        }
 
         // Convert time to 24-hour format if needed
-        let time24 = newAppointment.time
-        if (newAppointment.time.includes("AM") || newAppointment.time.includes("PM")) {
-          const [time, period] = newAppointment.time.split(" ")
+        let time24 = newAppointment.time || ""
+        if (!time24) {
+          toast({
+            title: "Hora requerida",
+            description: "Por favor selecciona una hora",
+            variant: "destructive",
+          })
+          return
+        }
+        
+        // If time is in HH:MM format (24-hour), use it directly
+        if (time24.match(/^\d{2}:\d{2}$/)) {
+          // Already in 24-hour format
+        } else if (time24.includes("AM") || time24.includes("PM")) {
+          // Convert from 12-hour to 24-hour format
+          const [time, period] = time24.split(" ")
           const [hours, minutes] = time.split(":")
           let hour24 = parseInt(hours)
           if (period === "PM" && hour24 !== 12) hour24 += 12

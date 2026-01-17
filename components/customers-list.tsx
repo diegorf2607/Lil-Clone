@@ -17,6 +17,7 @@ interface CustomersListProps {
 export function CustomersList({ customers, appointments, onCustomerClick, onDeleteCustomer }: CustomersListProps) {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
+  const [sortBy, setSortBy] = useState<"name" | "birthday" | "appointments">("name")
 
   const handleDelete = (e: React.MouseEvent, customerId: string, customerName: string) => {
     e.stopPropagation() // Prevent row click
@@ -83,15 +84,40 @@ export function CustomersList({ customers, appointments, onCustomerClick, onDele
     return customerAppointments.flatMap((apt) => apt.inspirationImages)
   }
 
-  const filteredCustomers = useMemo(() => {
-    return customers.filter((customer) => {
+  const filteredAndSortedCustomers = useMemo(() => {
+    // Filter by search query
+    let filtered = customers.filter((customer) => {
       const matchesSearch =
         customer.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         customer.phone.toLowerCase().includes(searchQuery.toLowerCase()) ||
         customer.email?.toLowerCase().includes(searchQuery.toLowerCase())
       return matchesSearch
     })
-  }, [customers, searchQuery])
+
+    // Sort by selected criteria
+    filtered = [...filtered].sort((a, b) => {
+      if (sortBy === "birthday") {
+        const aBirthday = a.birthdate ? getNextBirthday(a.birthdate) : null
+        const bBirthday = b.birthdate ? getNextBirthday(b.birthdate) : null
+        
+        if (!aBirthday && !bBirthday) return 0
+        if (!aBirthday) return 1 // Clientes sin cumpleaños al final
+        if (!bBirthday) return -1
+        
+        // Ordenar por cumpleaños más reciente (próximo en llegar)
+        return aBirthday.getTime() - bBirthday.getTime()
+      } else if (sortBy === "appointments") {
+        const aAppointments = getCustomerAppointments(a.id).length
+        const bAppointments = getCustomerAppointments(b.id).length
+        return bAppointments - aAppointments // Más reservas primero
+      } else {
+        // Sort by name (default)
+        return a.fullName.localeCompare(b.fullName)
+      }
+    })
+
+    return filtered
+  }, [customers, searchQuery, sortBy, appointments])
 
   const handleCustomerClick = (customer: Customer) => {
     setSelectedCustomer(customer)
@@ -102,8 +128,8 @@ export function CustomersList({ customers, appointments, onCustomerClick, onDele
 
   return (
     <div className="space-y-6">
-      {/* Search */}
-      <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+      {/* Search and Filters */}
+      <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 space-y-4">
         <div className="relative">
           <input
             type="text"
@@ -113,6 +139,20 @@ export function CustomersList({ customers, appointments, onCustomerClick, onDele
             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#AFA1FD] focus:border-transparent"
           />
           <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+        </div>
+        
+        {/* Sort/Filter Dropdown */}
+        <div className="flex items-center gap-2">
+          <label className="text-sm font-medium text-gray-700">Ordenar por:</label>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as "name" | "birthday" | "appointments")}
+            className="px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#AFA1FD] focus:border-transparent text-sm"
+          >
+            <option value="name">Nombre</option>
+            <option value="birthday">Cumpleaños más reciente</option>
+            <option value="appointments">Número de reservas</option>
+          </select>
         </div>
       </div>
 
@@ -130,7 +170,7 @@ export function CustomersList({ customers, appointments, onCustomerClick, onDele
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {filteredCustomers.map((customer, index) => {
+              {filteredAndSortedCustomers.map((customer, index) => {
                 const nextBirthday = customer.birthdate ? getNextBirthday(customer.birthdate) : null
                 const birthdayToday = customer.birthdate ? isBirthdayToday(customer.birthdate) : false
                 const birthdaySoon = customer.birthdate ? isBirthdaySoon(customer.birthdate) : false
@@ -243,7 +283,7 @@ export function CustomersList({ customers, appointments, onCustomerClick, onDele
             </tbody>
           </table>
         </div>
-        {filteredCustomers.length === 0 && (
+        {filteredAndSortedCustomers.length === 0 && (
           <div className="text-center py-12">
             <User className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <p className="text-lg font-semibold text-gray-600">No se encontraron clientes</p>
