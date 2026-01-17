@@ -2670,13 +2670,44 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
                   </div>
                 ) : (
                   <>
-                <div className="mb-8">
-                  <h1 className="text-5xl font-bold bg-gradient-to-r from-[#2C293F] via-[#AFA1FD] to-[#2C293F] bg-clip-text text-transparent mb-3">
-                    Reservas
-                  </h1>
-                  <p className="text-[#AFA1FD] text-lg font-medium">
-                    Gestiona todas las reservas y el historial de tus clientes
-                  </p>
+                <div className="mb-8 flex items-start justify-between">
+                  <div>
+                    <h1 className="text-5xl font-bold bg-gradient-to-r from-[#2C293F] via-[#AFA1FD] to-[#2C293F] bg-clip-text text-transparent mb-3">
+                      Reservas
+                    </h1>
+                    <p className="text-[#AFA1FD] text-lg font-medium">
+                      Gestiona todas las reservas y el historial de tus clientes
+                    </p>
+                  </div>
+                  {permissions.canCreateReservations && (
+                    <Button
+                      onClick={() => {
+                        // Reset form and open modal
+                        const today = new Date()
+                        const formattedDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`
+                        
+                        setNewAppointment({
+                          client: "",
+                          clientEmail: "",
+                          clientPhone: "",
+                          service: "",
+                          staffMember: "",
+                          date: formattedDate,
+                          time: "",
+                          duration: 30,
+                          notes: "",
+                          adelantoPagado: false,
+                        })
+                        setSelectedTimeSlot(null)
+                        setEntryType("appointment")
+                        setIsAppointmentModalOpen(true)
+                      }}
+                      className="bg-gradient-to-r from-[#AFA1FD] to-[#8B7FE8] hover:from-[#8B7FE8] hover:to-[#6B5FD8] text-white shadow-lg hover:shadow-xl transition-all"
+                    >
+                      <Plus className="w-5 h-5 mr-2" />
+                      Crear Reserva
+                    </Button>
+                  )}
                 </div>
 
                 <motion.div
