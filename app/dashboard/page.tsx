@@ -1360,18 +1360,6 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
     }
   }
 
-  const getStatusConfig = (status: Reservation["status"]) => {
-    switch (status) {
-      case "confirmed":
-        return { label: "Confirmada", color: "#007bff", bgColor: "#e7f3ff" }
-      case "completed":
-        return { label: "Completada", color: "#28a745", bgColor: "#e2f5e6" }
-      case "cancelled":
-        return { label: "Cancelada", color: "#dc3545", bgColor: "#fce9ea" }
-      default:
-        return { label: "Desconocido", color: "#6c757d", bgColor: "#f8f9fa" }
-    }
-  }
 
   const handleCompleteReservation = (id: number) => {
     setReservations(reservations.map((res) => (res.id === id ? { ...res, status: "completed" } : res)))
