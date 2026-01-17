@@ -1196,45 +1196,68 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
       const customers = crmStore.data.customers || []
       const staff = crmStore.data.staff || []
       
+      // Get current week days to calculate day indices
+      const currentWeekDays = getWeekDays(currentDate)
+      
       if (appointments.length > 0) {
-        const calendarAppointments: CalendarAppointment[] = appointments.map((apt) => {
-          const customer = customers.find((c) => c.id === apt.customerId)
-          const staffMember = apt.staffId ? staff.find((s) => s.id === apt.staffId) : undefined
-          
-          // Convert date to day of week (0 = Sunday, 6 = Saturday)
-          const aptDate = new Date(apt.date)
-          const dayOfWeek = aptDate.getDay()
-          
-          // Determine status based on date
-          const now = new Date()
-          let status: "confirmed" | "pending" | "completed" | "cancelled" = "confirmed"
-          if (aptDate < now) {
-            status = "completed"
-          }
-          
-          return {
-            id: apt.id,
-            day: dayOfWeek,
-            time: apt.startTime,
-            client: customer?.fullName || "Cliente desconocido",
-            clientEmail: customer?.email || "",
-            clientPhone: customer?.phone || "",
-            service: apt.serviceName,
-            staffMember: staffMember?.name || "",
-            status: status,
-            isManual: false,
-            paymentStatus: "pending",
-            paymentMethod: "online",
-            duration: services.find((s) => s.name === apt.serviceName)?.duration || apt.baseDuration || 30,
-          }
-        })
+        const calendarAppointments: CalendarAppointment[] = appointments
+          .map((apt) => {
+            const customer = customers.find((c) => c.id === apt.customerId)
+            const staffMember = apt.staffId ? staff.find((s) => s.id === apt.staffId) : undefined
+            
+            // Parse appointment date
+            const aptDate = new Date(apt.date + "T00:00:00")
+            aptDate.setHours(0, 0, 0, 0)
+            
+            // Find the index in weekDays array where this date falls
+            // weekDays[0] = Monday, weekDays[1] = Tuesday, ..., weekDays[6] = Sunday
+            let dayIndex = -1
+            for (let i = 0; i < currentWeekDays.length; i++) {
+              const weekDayDate = new Date(currentWeekDays[i].fullDate)
+              weekDayDate.setHours(0, 0, 0, 0)
+              if (weekDayDate.getTime() === aptDate.getTime()) {
+                dayIndex = i
+                break
+              }
+            }
+            
+            // Only include appointments that fall within the current visible week
+            if (dayIndex === -1) {
+              return null
+            }
+            
+            // Determine status based on date
+            const now = new Date()
+            now.setHours(0, 0, 0, 0)
+            let status: "confirmed" | "pending" | "completed" | "cancelled" = "confirmed"
+            if (aptDate < now) {
+              status = "completed"
+            }
+            
+            return {
+              id: apt.id,
+              day: dayIndex, // Use weekDays index (0 = Monday, 1 = Tuesday, etc.)
+              time: apt.startTime,
+              client: customer?.fullName || "Cliente desconocido",
+              clientEmail: customer?.email || "",
+              clientPhone: customer?.phone || "",
+              service: apt.serviceName,
+              staffMember: staffMember?.name || "",
+              status: status,
+              isManual: false,
+              paymentStatus: "pending",
+              paymentMethod: "online",
+              duration: services.find((s) => s.name === apt.serviceName)?.duration || apt.baseDuration || 30,
+            }
+          })
+          .filter((apt): apt is CalendarAppointment => apt !== null) // Filter out null appointments
         
         setAppointments(calendarAppointments)
       } else {
         setAppointments([])
       }
     }
-  }, [crmStore.isLoaded, crmStore.data?.appointments, crmStore.data?.customers, crmStore.data?.staff, services])
+  }, [crmStore.isLoaded, crmStore.data?.appointments, crmStore.data?.customers, crmStore.data?.staff, services, currentDate])
 
   const handleSaveBusinessInfo = async () => {
     // Validate required fields
