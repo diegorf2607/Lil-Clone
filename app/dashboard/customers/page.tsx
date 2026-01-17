@@ -124,12 +124,23 @@ export default function CustomersPage() {
       })
 
       // Wait a bit for the customer to be saved and get the ID
-      await new Promise(resolve => setTimeout(resolve, 200))
+      await new Promise(resolve => setTimeout(resolve, 300))
       
-      // Get the customer ID after upsert
-      const customer = crmStore.getCustomerByPhone(formData.phone)
+      // Get the customer ID after upsert - try by phone first, then by email
+      let customer = crmStore.getCustomerByPhone(formData.phone)
+      
+      // If not found by phone, try by email
+      if (!customer && formData.email) {
+        customer = crmStore.data.customers.find(c => c.email === formData.email)
+      }
+      
       if (!customer || !customer.id) {
-        throw new Error("No se pudo obtener el ID del cliente después de guardar")
+        toast({
+          title: "Error",
+          description: "No se pudo obtener el ID del cliente después de guardar. Por favor intenta de nuevo.",
+          variant: "destructive",
+        })
+        return
       }
       const customerId = customer.id
 
