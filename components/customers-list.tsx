@@ -18,6 +18,7 @@ export function CustomersList({ customers, appointments, onCustomerClick, onDele
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [sortBy, setSortBy] = useState<"name" | "birthday" | "appointments">("name")
+  const [filterBy, setFilterBy] = useState<"all" | "birthday-soon" | "with-appointments" | "no-appointments">("all")
 
   const handleDelete = (e: React.MouseEvent, customerId: string, customerName: string) => {
     e.stopPropagation() // Prevent row click
@@ -94,6 +95,22 @@ export function CustomersList({ customers, appointments, onCustomerClick, onDele
       return matchesSearch
     })
 
+    // Apply additional filters
+    if (filterBy === "birthday-soon") {
+      filtered = filtered.filter((customer) => {
+        if (!customer.birthdate) return false
+        return isBirthdaySoon(customer.birthdate) || isBirthdayToday(customer.birthdate)
+      })
+    } else if (filterBy === "with-appointments") {
+      filtered = filtered.filter((customer) => {
+        return getCustomerAppointments(customer.id).length > 0
+      })
+    } else if (filterBy === "no-appointments") {
+      filtered = filtered.filter((customer) => {
+        return getCustomerAppointments(customer.id).length === 0
+      })
+    }
+
     // Sort by selected criteria
     filtered = [...filtered].sort((a, b) => {
       if (sortBy === "birthday") {
@@ -117,7 +134,7 @@ export function CustomersList({ customers, appointments, onCustomerClick, onDele
     })
 
     return filtered
-  }, [customers, searchQuery, sortBy, appointments])
+  }, [customers, searchQuery, sortBy, filterBy, appointments])
 
   const handleCustomerClick = (customer: Customer) => {
     setSelectedCustomer(customer)
@@ -141,18 +158,34 @@ export function CustomersList({ customers, appointments, onCustomerClick, onDele
           <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
         </div>
         
-        {/* Sort/Filter Dropdown */}
-        <div className="flex items-center gap-2">
-          <label className="text-sm font-medium text-gray-700">Ordenar por:</label>
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as "name" | "birthday" | "appointments")}
-            className="px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#AFA1FD] focus:border-transparent text-sm"
-          >
-            <option value="name">Nombre</option>
-            <option value="birthday">Cumpleaños más reciente</option>
-            <option value="appointments">Número de reservas</option>
-          </select>
+        {/* Filter and Sort Controls */}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium text-gray-700">Filtrar:</label>
+            <select
+              value={filterBy}
+              onChange={(e) => setFilterBy(e.target.value as "all" | "birthday-soon" | "with-appointments" | "no-appointments")}
+              className="px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#AFA1FD] focus:border-transparent text-sm"
+            >
+              <option value="all">Todos</option>
+              <option value="birthday-soon">Cumpleaños próximos</option>
+              <option value="with-appointments">Con reservas</option>
+              <option value="no-appointments">Sin reservas</option>
+            </select>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium text-gray-700">Ordenar por:</label>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as "name" | "birthday" | "appointments")}
+              className="px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#AFA1FD] focus:border-transparent text-sm"
+            >
+              <option value="name">Nombre</option>
+              <option value="birthday">Cumpleaños más reciente</option>
+              <option value="appointments">Número de reservas</option>
+            </select>
+          </div>
         </div>
       </div>
 

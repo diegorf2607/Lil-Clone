@@ -429,8 +429,6 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
   }
 
   const handleSaveAppointment = async () => {
-    if (!selectedTimeSlot) return
-
     if (entryType === "appointment") {
       // Validation
       if (!newAppointment.client || !newAppointment.clientEmail || !newAppointment.service) {
@@ -471,37 +469,43 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
         appointmentDuration = selectedService.duration
       }
 
-      // Check for overlapping appointments (check all appointments, not just visible)
-      const hasOverlap = appointments.some((apt) => {
-        if (apt.day !== selectedTimeSlot.day) return false
+      // Check for overlapping appointments (only if we have date and time)
+      if (newAppointment.date && newAppointment.time) {
+        const fullDate = newAppointment.date
+        const time24 = newAppointment.time.match(/^\d{2}:\d{2}$/) 
+          ? newAppointment.time 
+          : newAppointment.time.includes("AM") || newAppointment.time.includes("PM")
+            ? (() => {
+                const [time, period] = newAppointment.time.split(" ")
+                const [hours, minutes] = time.split(":")
+                let hour24 = parseInt(hours)
+                if (period === "PM" && hour24 !== 12) hour24 += 12
+                if (period === "AM" && hour24 === 12) hour24 = 0
+                return `${hour24.toString().padStart(2, "0")}:${minutes}`
+              })()
+            : newAppointment.time
 
-        const aptStartMinutes = Number.parseInt(apt.time.split(":")[0]) * 60 + Number.parseInt(apt.time.split(":")[1])
-        const newStartMinutes =
-          Number.parseInt(newAppointment.time.split(":")[0]) * 60 + Number.parseInt(newAppointment.time.split(":")[1])
-        const aptEndMinutes = aptStartMinutes + (apt.duration || 30)
-        const newEndMinutes = newStartMinutes + appointmentDuration // Use calculated duration
+        // Check overlaps using CRM store appointments
+        const crmAppointments = crmStore.data.appointments || []
+        const hasOverlap = crmAppointments.some((apt) => {
+          if (apt.date !== fullDate) return false
 
-        // Check if the current slot is within business hours
-        const selectedDayHours = businessHours[weekDays[selectedTimeSlot.day].key]
-        if (!selectedDayHours || !selectedDayHours.enabled) return true // Block if business is closed
+          const aptStartMinutes = Number.parseInt(apt.startTime.split(":")[0]) * 60 + Number.parseInt(apt.startTime.split(":")[1])
+          const newStartMinutes = Number.parseInt(time24.split(":")[0]) * 60 + Number.parseInt(time24.split(":")[1])
+          const aptEndMinutes = aptStartMinutes + (apt.baseDuration || 30)
+          const newEndMinutes = newStartMinutes + appointmentDuration
 
-        const businessStartMinutes = Number.parseInt(selectedDayHours.start.split(":")[0]) * 60 + Number.parseInt(selectedDayHours.start.split(":")[1])
-        const businessEndMinutes = Number.parseInt(selectedDayHours.end.split(":")[0]) * 60 + Number.parseInt(selectedDayHours.end.split(":")[1])
-
-        if (newStartMinutes < businessStartMinutes || newEndMinutes > businessEndMinutes) {
-          return true // Block if appointment is outside business hours
-        }
-
-        return newStartMinutes < aptEndMinutes && newEndMinutes > aptStartMinutes
-      })
-
-      if (hasOverlap) {
-        toast({
-          title: "Conflicto de horario",
-          description: "Ya existe una reserva o la hora está fuera de horario laboral. Por favor elige otro horario.",
-          variant: "destructive",
+          return newStartMinutes < aptEndMinutes && newEndMinutes > aptStartMinutes
         })
-        return
+
+        if (hasOverlap) {
+          toast({
+            title: "Conflicto de horario",
+            description: "Ya existe una reserva en ese horario. Por favor elige otro horario.",
+            variant: "destructive",
+          })
+          return
+        }
       }
 
       // Save to CRM store (this will sync all views via useEffect)
@@ -639,6 +643,16 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
         toast({
           title: "Campo requerido",
           description: "Por favor ingresa un título para la ocupación",
+          variant: "destructive",
+        })
+        return
+      }
+
+      // For occupation, we still need selectedTimeSlot
+      if (!selectedTimeSlot) {
+        toast({
+          title: "Error",
+          description: "Por favor selecciona una fecha y hora desde el calendario",
           variant: "destructive",
         })
         return
