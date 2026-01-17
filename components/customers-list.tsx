@@ -216,7 +216,8 @@ export function CustomersList({ customers, appointments, onCustomerClick, onDele
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.02 }}
-                    className="hover:bg-purple-50 transition-colors"
+                    onClick={() => handleCustomerClick(customer)}
+                    className="hover:bg-purple-50 transition-colors cursor-pointer"
                   >
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">

@@ -21,7 +21,7 @@ export interface InspirationImage {
 export interface Appointment {
   id: string
   customerId: string
-  staffId: string
+  staffId?: string // Optional - can be undefined/null for unassigned appointments
   serviceName: string
   date: string // YYYY-MM-DD
   startTime: string // HH:MM

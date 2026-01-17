@@ -604,7 +604,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
         await crmStore.addAppointment({
           id: `temp_${Date.now()}`, // Temporary, will be replaced by Supabase UUID
           customerId,
-          staffId: staffId || "",
+          staffId: staffId || undefined, // Use undefined instead of empty string for unassigned staff
           serviceName: newAppointment.service,
           date: fullDate,
           startTime: time24,
@@ -1199,7 +1199,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
       if (appointments.length > 0) {
         const calendarAppointments: CalendarAppointment[] = appointments.map((apt) => {
           const customer = customers.find((c) => c.id === apt.customerId)
-          const staffMember = staff.find((s) => s.id === apt.staffId)
+          const staffMember = apt.staffId ? staff.find((s) => s.id === apt.staffId) : undefined
           
           // Convert date to day of week (0 = Sunday, 6 = Saturday)
           const aptDate = new Date(apt.date)
