@@ -683,10 +683,25 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
     setOccupations(occupations.filter((occ) => occ.id !== id))
   }
 
-  const handleDeleteAppointment = (id: string) => {
-    // Changed id to string
-    if (confirm("¿Estás seguro de que deseas eliminar esta cita?")) {
-      setAppointments(appointments.filter((apt) => apt.id !== id))
+  const handleDeleteAppointment = async (id: string) => {
+    if (confirm("¿Estás seguro de que deseas eliminar esta reserva? Esta acción no se puede deshacer.")) {
+      try {
+        await crmStore.deleteAppointment(id)
+        toast({
+          title: "Reserva eliminada",
+          description: "La reserva ha sido eliminada exitosamente",
+        })
+        // Reload to sync all views
+        await new Promise(resolve => setTimeout(resolve, 300))
+        crmStore.reload()
+      } catch (error) {
+        console.error("Error deleting appointment:", error)
+        toast({
+          title: "Error",
+          description: "Hubo un error al eliminar la reserva. Por favor intenta de nuevo.",
+          variant: "destructive",
+        })
+      }
     }
   }
 
@@ -2942,6 +2957,32 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
                                     Cancelar
                                   </Button>
                                 </>
+                              )}
+                              {permissions.canDeleteReservations && (
+                                <Button
+                                  onClick={async (e) => {
+                                    e.stopPropagation()
+                                    // Use appointmentId if available, otherwise try to find it
+                                    const appointmentIdToDelete = reservation.appointmentId || 
+                                      (correspondingAppointment ? correspondingAppointment.id : null)
+                                    
+                                    if (appointmentIdToDelete) {
+                                      await handleDeleteAppointment(appointmentIdToDelete)
+                                    } else {
+                                      toast({
+                                        title: "Error",
+                                        description: "No se pudo encontrar el ID de la reserva para eliminar",
+                                        variant: "destructive",
+                                      })
+                                    }
+                                  }}
+                                  size="sm"
+                                  variant="outline"
+                                  className="border-red-500 text-red-600 hover:bg-red-100"
+                                  title="Eliminar reserva permanentemente"
+                                >
+                                  <X className="w-4 h-4" />
+                                </Button>
                               )}
                               <motion.div
                                 animate={{ rotate: isExpanded ? 180 : 0 }}

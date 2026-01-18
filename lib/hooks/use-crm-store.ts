@@ -496,6 +496,44 @@ export function useCRMStore() {
     [data.appointments]
   )
 
+  const deleteAppointment = useCallback(
+    async (appointmentId: string) => {
+      try {
+        if (useSupabase) {
+          const supabase = createClient()
+          const { error } = await supabase
+            .from("appointments")
+            .delete()
+            .eq("id", appointmentId)
+
+          if (error) {
+            console.error("Error deleting appointment:", error)
+            throw error
+          }
+
+          // Trigger reload to refresh all data from Supabase
+          setReloadTrigger((prev) => prev + 1)
+        } else {
+          // Fallback to localStorage
+          setData((prev) => {
+            const newData = {
+              ...prev,
+              appointments: prev.appointments.filter((apt) => apt.id !== appointmentId),
+            }
+            if (typeof window !== "undefined") {
+              localStorage.setItem("beauty_crm_v1", JSON.stringify(newData))
+            }
+            return newData
+          })
+        }
+      } catch (error) {
+        console.error("Error deleting appointment:", error)
+        throw error
+      }
+    },
+    [useSupabase, setReloadTrigger]
+  )
+
   return {
     data,
     isLoaded,
@@ -510,6 +548,7 @@ export function useCRMStore() {
     addAppointment,
     getAppointmentsByDate,
     getAppointmentsByCustomer,
+    deleteAppointment,
     // Reload
     reload,
   }
