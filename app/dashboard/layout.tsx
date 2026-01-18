@@ -116,23 +116,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               (item.href === "/dashboard" && pathname === "/dashboard") ||
               (item.id === "customers" && pathname?.includes("/customers"))
             return (
-              <motion.button
-                key={item.id}
-                type="button"
-                whileHover={{ x: sidebarOpen ? 4 : 0 }}
-                onClick={() => {
-                  router.push(item.href)
-                  setMobileMenuOpen(false)
-                }}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
-                  isActive
-                    ? "bg-gradient-to-r from-[#AFA1FD] to-[#9890E8] text-white shadow-lg"
-                    : "text-[#2C293F] hover:bg-[#AFA1FD]/10"
-                }`}
-              >
-                <Icon className="w-5 h-5 flex-shrink-0" />
-                {sidebarOpen && <span className="text-sm font-medium">{item.label}</span>}
-              </motion.button>
+              <Link key={item.id} href={item.href} onClick={() => setMobileMenuOpen(false)}>
+                <motion.div
+                  whileHover={{ x: sidebarOpen ? 4 : 0 }}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all cursor-pointer ${
+                    isActive
+                      ? "bg-gradient-to-r from-[#AFA1FD] to-[#9890E8] text-white shadow-lg"
+                      : "text-[#2C293F] hover:bg-[#AFA1FD]/10"
+                  }`}
+                >
+                  <Icon className="w-5 h-5 flex-shrink-0" />
+                  {sidebarOpen && <span className="text-sm font-medium">{item.label}</span>}
+                </motion.div>
+              </Link>
             )
           })}
         </nav>
