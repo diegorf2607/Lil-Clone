@@ -34,8 +34,18 @@ export function useCRMStore() {
   useEffect(() => {
     const loadData = async () => {
       try {
+        // Debug: Log Supabase configuration status
+        console.log("🔍 Verificando Supabase:", {
+          isConfigured: useSupabase,
+          hasUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+          hasKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+          urlPreview: process.env.NEXT_PUBLIC_SUPABASE_URL?.substring(0, 30) || "N/A"
+        })
+
         if (useSupabase) {
-          const supabase = createClient()
+          try {
+            const supabase = createClient()
+            console.log("✅ Cliente Supabase creado exitosamente")
 
           // Load customers
           const { data: customersData, error: customersError } = await supabase
@@ -89,8 +99,18 @@ export function useCRMStore() {
             staff: newStaff,
             appointments: newAppointments,
           })
+          console.log("✅ Datos cargados desde Supabase:", {
+            customers: newCustomers.length,
+            staff: newStaff.length,
+            appointments: newAppointments.length
+          })
+          } catch (supabaseError: any) {
+            console.error("❌ Error al crear cliente Supabase:", supabaseError)
+            throw supabaseError // Re-throw to be caught by outer try-catch
+          }
         } else {
           // Fallback to localStorage
+          console.log("ℹ️ Usando localStorage (Supabase no configurado)")
           if (typeof window !== "undefined") {
             const stored = localStorage.getItem("beauty_crm_v1")
             if (stored) {
@@ -100,7 +120,8 @@ export function useCRMStore() {
           }
         }
       } catch (error) {
-        console.error("Error loading CRM data:", error)
+        console.error("❌ Error loading CRM data:", error)
+        console.log("🔄 Cambiando a localStorage como fallback...")
         // Fallback to localStorage on error
         if (typeof window !== "undefined") {
           try {
