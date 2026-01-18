@@ -1038,45 +1038,66 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
     }
   }
 
-  // Calculate upcoming appointments from CRM store (today and future)
+  const dashboardReservationsSource = useMemo(
+    () => (reservations.length > 0 ? reservations : derivedReservations),
+    [reservations, derivedReservations]
+  )
+
+  const toReservationDateTime = useCallback((reservation: Reservation) => {
+    const normalizedDate = reservation.date.includes("/")
+      ? (() => {
+          const [day, month, year] = reservation.date.split("/")
+          return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`
+        })()
+      : reservation.date
+
+    const normalizedTime = reservation.time.includes("AM") || reservation.time.includes("PM")
+      ? (() => {
+          const [time, period] = reservation.time.split(" ")
+          const [hours, minutes] = time.split(":")
+          let hour24 = parseInt(hours)
+          if (period === "PM" && hour24 !== 12) hour24 += 12
+          if (period === "AM" && hour24 === 12) hour24 = 0
+          return `${hour24.toString().padStart(2, "0")}:${minutes}`
+        })()
+      : reservation.time
+
+    return new Date(`${normalizedDate}T${normalizedTime}`)
+  }, [])
+
+  const formatReservationTime = useCallback((time: string) => {
+    if (time.includes("AM") || time.includes("PM")) return time
+    const [hours, minutes] = time.split(":")
+    const hour24 = parseInt(hours)
+    const hour12 = hour24 === 0 ? 12 : hour24 > 12 ? hour24 - 12 : hour24
+    const period = hour24 >= 12 ? "PM" : "AM"
+    return `${hour12}:${minutes} ${period}`
+  }, [])
+
+  // Calculate upcoming appointments from reservations (confirmed only)
   const upcomingAppointments = useMemo(() => {
-    if (!crmStore.isLoaded || !crmStore.data) return []
-    
+    if (!dashboardReservationsSource.length) return []
+
     const today = new Date()
     today.setHours(0, 0, 0, 0)
-    
-    const appointments = crmStore.data.appointments || []
-    const customers = crmStore.data.customers || []
-    
-    return appointments
-      .filter((apt) => {
-        const aptDate = new Date(apt.date + "T" + apt.startTime)
-        aptDate.setHours(0, 0, 0, 0)
-        return aptDate >= today
+
+    return dashboardReservationsSource
+      .filter((res) => {
+        if (res.status !== "confirmed") return false
+        const resDate = toReservationDateTime(res)
+        resDate.setHours(0, 0, 0, 0)
+        return resDate >= today
       })
-      .sort((a, b) => {
-        const dateA = new Date(a.date + "T" + a.startTime)
-        const dateB = new Date(b.date + "T" + b.startTime)
-        return dateA.getTime() - dateB.getTime()
-      })
-      .slice(0, 5) // Get top 5 upcoming
-      .map((apt) => {
-        const customer = customers.find((c) => c.id === apt.customerId)
-        const [hours, minutes] = apt.startTime.split(":")
-        const hour24 = parseInt(hours)
-        const hour12 = hour24 === 0 ? 12 : hour24 > 12 ? hour24 - 12 : hour24
-        const period = hour24 >= 12 ? "PM" : "AM"
-        const time12 = `${hour12}:${minutes} ${period}`
-        
-        return {
-          id: apt.id,
-          client: customer?.fullName || "Cliente desconocido",
-          service: apt.serviceName,
-          time: time12,
-          status: "Confirmada",
-        }
-      })
-  }, [crmStore.isLoaded, crmStore.data?.appointments, crmStore.data?.customers])
+      .sort((a, b) => toReservationDateTime(a).getTime() - toReservationDateTime(b).getTime())
+      .slice(0, 5)
+      .map((res) => ({
+        id: res.id.toString(),
+        client: res.clientName,
+        service: res.service,
+        time: formatReservationTime(res.time),
+        status: "Confirmada",
+      }))
+  }, [dashboardReservationsSource, toReservationDateTime, formatReservationTime])
 
   // Calculate recent reservations from reservations state
   // Helper function to get status config
@@ -1094,18 +1115,15 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
   }
 
   const recentReservations = useMemo(() => {
-    return reservations
-      .sort((a, b) => {
-        const dateA = new Date(a.date + "T" + a.time)
-        const dateB = new Date(b.date + "T" + b.time)
-        return dateB.getTime() - dateA.getTime() // Most recent first
-      })
-      .slice(0, 5) // Get top 5 recent
+    return dashboardReservationsSource
+      .filter((res) => res.status === "confirmed")
+      .sort((a, b) => toReservationDateTime(b).getTime() - toReservationDateTime(a).getTime())
+      .slice(0, 5)
       .map((res) => ({
         id: res.id,
         text: `${res.clientName} - ${res.service} - ${getStatusConfig(res.status).label}`,
       }))
-  }, [reservations])
+  }, [dashboardReservationsSource, toReservationDateTime])
 
   const getWeekDays = (date: Date) => {
     const days = []
@@ -1700,13 +1718,55 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
   }
 
 
-  const handleCompleteReservation = (id: number) => {
-    setReservations(reservations.map((res) => (res.id === id ? { ...res, status: "completed" } : res)))
+  const updateReservationStatus = async (id: number, status: "completed" | "cancelled") => {
+    const targetReservation = reservations.find((res) => res.id === id)
+    if (!targetReservation) return
+
+    setReservations(
+      reservations.map((res) => (res.id === id ? { ...res, status } : res))
+    )
+
+    if (isSupabaseConfigured) {
+      try {
+        const supabase = createClient()
+        const normalizedDate = targetReservation.date.includes("/")
+          ? (() => {
+              const [day, month, year] = targetReservation.date.split("/")
+              return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`
+            })()
+          : targetReservation.date
+
+        const normalizedTime = targetReservation.time.includes("AM") || targetReservation.time.includes("PM")
+          ? (() => {
+              const [time, period] = targetReservation.time.split(" ")
+              const [hours, minutes] = time.split(":")
+              let hour24 = parseInt(hours)
+              if (period === "PM" && hour24 !== 12) hour24 += 12
+              if (period === "AM" && hour24 === 12) hour24 = 0
+              return `${hour24.toString().padStart(2, "0")}:${minutes}`
+            })()
+          : targetReservation.time
+
+        await supabase
+          .from("reservations")
+          .update({ status })
+          .eq("client_phone", targetReservation.clientPhone)
+          .eq("date", normalizedDate)
+          .eq("time", normalizedTime)
+          .eq("service", targetReservation.service)
+      } catch (error) {
+        console.error("Error updating reservation status:", error)
+      }
+    }
+  }
+
+  const handleCompleteReservation = async (id: number) => {
+    await updateReservationStatus(id, "completed")
     setSaveMessage("Reserva marcada como completada.")
   }
 
-  const handleCancelReservation = (id: number) => {
-    setReservations(reservations.map((res) => (res.id === id ? { ...res, status: "cancelled" } : res)))
+  const handleCancelReservation = async (id: number) => {
+    await updateReservationStatus(id, "cancelled")
     setSaveMessage("Reserva cancelada.")
   }
 
@@ -2013,46 +2073,51 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
                     const today = new Date()
                     today.setHours(0, 0, 0, 0)
                     
-                    // Count appointments today
-                    const todayAppointments = crmStore.isLoaded
-                      ? crmStore.data.appointments.filter((apt) => {
-                          const aptDate = new Date(apt.date + "T" + apt.startTime)
-                          aptDate.setHours(0, 0, 0, 0)
-                          return aptDate.getTime() === today.getTime()
-                        }).length
-                      : 0
-                    
-                    // Count unique customers this month
+                    const sourceReservations = dashboardReservationsSource
+
+                    const confirmedReservations = sourceReservations.filter(
+                      (res) => res.status === "confirmed"
+                    )
+
+                    // Count appointments today (confirmed only)
+                    const todayAppointments = confirmedReservations.filter((res) => {
+                      const resDate = toReservationDateTime(res)
+                      resDate.setHours(0, 0, 0, 0)
+                      return resDate.getTime() === today.getTime()
+                    }).length
+
+                    // Count unique customers with >= 2 reservations this month (confirmed/completed)
                     const thisMonth = new Date()
                     thisMonth.setDate(1)
                     thisMonth.setHours(0, 0, 0, 0)
-                    const thisMonthCustomers = crmStore.isLoaded
-                      ? new Set(
-                          crmStore.data.appointments
-                            .filter((apt) => {
-                              const aptDate = new Date(apt.date)
-                              return aptDate >= thisMonth
-                            })
-                            .map((apt) => apt.customerId)
-                        ).size
-                      : 0
-                    
-                    // Calculate estimated income (sum of service prices)
-                    const estimatedIncome = crmStore.isLoaded
-                      ? crmStore.data.appointments
-                          .filter((apt) => {
-                            const aptDate = new Date(apt.date)
-                            return aptDate >= thisMonth
-                          })
-                          .reduce((sum, apt) => {
-                            const service = services.find((s) => s.name === apt.serviceName)
-                            return sum + (service?.price || 0)
-                          }, 0)
-                      : 0
-                    
-                    // Calculate occupancy rate (simplified: appointments / available slots)
-                    const occupancyRate = crmStore.isLoaded && crmStore.data.appointments.length > 0
-                      ? Math.min(100, Math.round((crmStore.data.appointments.length / 50) * 100))
+                    const customerCounts = new Map<string, number>()
+                    sourceReservations
+                      .filter((res) => res.status !== "cancelled")
+                      .forEach((res) => {
+                        const resDate = toReservationDateTime(res)
+                        if (resDate >= thisMonth) {
+                          const key = res.clientPhone || res.clientEmail
+                          customerCounts.set(key, (customerCounts.get(key) || 0) + 1)
+                        }
+                      })
+                    const thisMonthCustomers = Array.from(customerCounts.values()).filter(
+                      (count) => count >= 2
+                    ).length
+
+                    // Calculate estimated income (sum of service prices, confirmed only)
+                    const estimatedIncome = confirmedReservations
+                      .filter((res) => {
+                        const resDate = toReservationDateTime(res)
+                        return resDate >= thisMonth
+                      })
+                      .reduce((sum, res) => {
+                        const service = services.find((s) => s.name === res.service)
+                        return sum + (service?.price || 0)
+                      }, 0)
+
+                    // Calculate occupancy rate (simplified: confirmed reservations / available slots)
+                    const occupancyRate = confirmedReservations.length > 0
+                      ? Math.min(100, Math.round((confirmedReservations.length / 50) * 100))
                       : 0
                     
                     return [
