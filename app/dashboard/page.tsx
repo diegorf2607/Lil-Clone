@@ -1535,14 +1535,12 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
     if (!user || user.role !== "staff" || !crmStore.isLoaded || !crmStore.data) return []
 
     const staffRecord = crmStore.data.staff.find((s) => s.name === user.name)
-    if (!staffRecord) return []
-
-    const staffAppointments = crmStore.data.appointments.filter(
-      (apt) => apt.staffId === staffRecord.id
-    )
-    const customers = crmStore.data.customers
+    const staffAppointments = staffRecord
+      ? crmStore.data.appointments.filter((apt) => apt.staffId === staffRecord.id)
+      : crmStore.data.appointments
 
     if (staffAppointments.length === 0) return []
+    const customers = crmStore.data.customers
 
     const customerAppointments = new Map<string, typeof staffAppointments>()
     staffAppointments.forEach((apt) => {
@@ -1608,7 +1606,9 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
 
   const visibleReservations = useMemo(() => {
     if (!user) return []
-    if (user.role === "staff") return staffReservations
+    if (user.role === "staff") {
+      return staffReservations.length > 0 ? staffReservations : reservations
+    }
     
     if (user.role === "dueno") {
       return reservations // Todas
