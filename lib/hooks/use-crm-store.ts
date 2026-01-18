@@ -286,6 +286,67 @@ export function useCRMStore() {
     [data.customers]
   )
 
+  const getOrCreateCustomerId = useCallback(
+    async (customer: Customer): Promise<string | null> => {
+      const normalizedPhone =
+        customer.phone?.trim() || (customer.email ? `email:${customer.email}` : `temp:${Date.now()}`)
+      const normalizedCustomer: Customer = {
+        ...customer,
+        phone: normalizedPhone,
+        fullName: customer.fullName?.trim() ? customer.fullName : "Cliente",
+      }
+
+      try {
+        if (useSupabase) {
+          const supabase = createClient()
+          const { data: upserted, error } = await supabase
+            .from("customers")
+            .upsert(
+              {
+                full_name: normalizedCustomer.fullName,
+                phone: normalizedCustomer.phone,
+                email: normalizedCustomer.email || null,
+                birthdate: normalizedCustomer.birthdate || null,
+              },
+              { onConflict: "phone" }
+            )
+            .select("id")
+            .single()
+
+          if (error) {
+            console.error("Error upserting customer for ID:", error)
+            throw error
+          }
+
+          setReloadTrigger((prev) => prev + 1)
+          return upserted?.id || null
+        }
+
+        const existing = data.customers.find((c) => c.phone === normalizedCustomer.phone)
+        if (existing) {
+          return existing.id
+        }
+
+        const newId = normalizedCustomer.id || `local_${Date.now()}`
+        setData((prev) => {
+          const newData = {
+            ...prev,
+            customers: [...prev.customers, { ...normalizedCustomer, id: newId }],
+          }
+          if (typeof window !== "undefined") {
+            localStorage.setItem("beauty_crm_v1", JSON.stringify(newData))
+          }
+          return newData
+        })
+        return newId
+      } catch (error) {
+        console.error("Error getting/creating customer ID:", error)
+        return null
+      }
+    },
+    [useSupabase, setReloadTrigger, data.customers, setData]
+  )
+
   const deleteCustomer = useCallback(
     async (customerId: string) => {
       try {
@@ -572,6 +633,7 @@ export function useCRMStore() {
     getAppointmentsByDate,
     getAppointmentsByCustomer,
     deleteAppointment,
+    getOrCreateCustomerId,
     // Reload
     reload,
   }

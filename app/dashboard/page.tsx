@@ -174,6 +174,29 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
       new Intl.NumberFormat("es-PE", { style: "currency", currency: "PEN" }).format(value),
     []
   )
+  const reconciledAppointmentsRef = useRef<Set<string>>(new Set())
+
+  const normalizeDateString = (dateStr: string) => {
+    if (dateStr.includes("/")) {
+      const [day, month, year] = dateStr.split("/")
+      return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`
+    }
+    return dateStr
+  }
+
+  const normalizeTimeTo24 = (timeStr: string) => {
+    if (!timeStr) return ""
+    if (timeStr.match(/^\d{2}:\d{2}$/)) return timeStr
+    if (timeStr.includes("AM") || timeStr.includes("PM")) {
+      const [time, period] = timeStr.split(" ")
+      const [hours, minutes] = time.split(":")
+      let hour24 = parseInt(hours)
+      if (period === "PM" && hour24 !== 12) hour24 += 12
+      if (period === "AM" && hour24 === 12) hour24 = 0
+      return `${hour24.toString().padStart(2, "0")}:${minutes}`
+    }
+    return timeStr
+  }
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -526,62 +549,14 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
 
       // Save to CRM store (this will sync all views via useEffect)
       if (crmStore.isLoaded) {
-        // Upsert customer - will update name if phone exists but name is different
-        // This ensures each reservation shows the correct name even if phone is reused
-        // Since phone has UNIQUE constraint in Supabase, we can only have one customer per phone
-        await crmStore.upsertCustomer({
-          id: `temp_${Date.now()}`, // Temporary, will be replaced by Supabase UUID
+        const normalizedPhone = newAppointment.clientPhone?.trim() || `email:${newAppointment.clientEmail}`
+        const customerId = await crmStore.getOrCreateCustomerId({
+          id: `temp_${Date.now()}`,
           fullName: newAppointment.client,
-          phone: newAppointment.clientPhone || "",
+          phone: normalizedPhone,
           email: newAppointment.clientEmail,
         })
 
-        // Wait for customer to be saved/updated in Supabase
-        await new Promise(resolve => setTimeout(resolve, 500))
-
-        // Reload to get fresh data from Supabase (including updated customer name)
-        crmStore.reload()
-        await new Promise(resolve => setTimeout(resolve, 300))
-
-        // Get the customer ID after upsert (prefer direct Supabase lookup)
-        let customerId: string | null = null
-        if (isSupabaseConfigured) {
-          try {
-            const supabase = createClient()
-            if (newAppointment.clientPhone) {
-              const { data } = await supabase
-                .from("customers")
-                .select("id")
-                .eq("phone", newAppointment.clientPhone)
-                .maybeSingle()
-              customerId = data?.id || null
-            }
-
-            if (!customerId && newAppointment.clientEmail) {
-              const { data } = await supabase
-                .from("customers")
-                .select("id")
-                .eq("email", newAppointment.clientEmail)
-                .maybeSingle()
-              customerId = data?.id || null
-            }
-          } catch (error) {
-            console.error("Error getting customer ID from Supabase:", error)
-          }
-        }
-
-        if (!customerId) {
-          if (newAppointment.clientPhone) {
-            const updatedCustomer = crmStore.getCustomerByPhone(newAppointment.clientPhone)
-            customerId = updatedCustomer?.id || null
-          }
-
-          if (!customerId && newAppointment.clientEmail) {
-            const customerByEmail = crmStore.data.customers.find(c => c.email === newAppointment.clientEmail)
-            customerId = customerByEmail?.id || null
-          }
-        }
-        
         if (!customerId) {
           toast({
             title: "Error",
@@ -664,7 +639,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
           try {
             const supabase = createClient()
             const existingReservationsForClient = reservations.filter(
-              (r) => r.clientPhone === (newAppointment.clientPhone || "")
+              (r) => r.clientPhone === normalizedPhone
             )
             const history = existingReservationsForClient.map((r) => ({
               date: r.date,
@@ -675,7 +650,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
             await supabase.from("reservations").insert({
               client_name: newAppointment.client,
               client_email: newAppointment.clientEmail || "",
-              client_phone: newAppointment.clientPhone || "",
+              client_phone: normalizedPhone,
               date: fullDate,
               time: time24,
               service: newAppointment.service,
@@ -688,6 +663,45 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
             console.error("Error saving reservation to Supabase:", error)
           }
         }
+
+        // Local fallback to ensure UI shows reservation immediately
+        const time12 = (() => {
+          const [hours, minutes] = time24.split(":")
+          const hour24 = parseInt(hours)
+          const hour12 = hour24 === 0 ? 12 : hour24 > 12 ? hour24 - 12 : hour24
+          const period = hour24 >= 12 ? "PM" : "AM"
+          return `${hour12}:${minutes} ${period}`
+        })()
+
+        setReservations((prev) => {
+          const exists = prev.some((res) => {
+            const resDate = normalizeDateString(res.date)
+            const resTime = normalizeTimeTo24(res.time)
+            return (
+              res.clientPhone === (newAppointment.clientPhone || "") &&
+              resDate === fullDate &&
+              resTime === time24 &&
+              res.service === newAppointment.service
+            )
+          })
+          if (exists) return prev
+          return [
+            {
+              id: Date.now(),
+              clientName: newAppointment.client,
+              clientEmail: newAppointment.clientEmail || "",
+              clientPhone: newAppointment.clientPhone || "",
+              date: fullDate,
+              time: time12,
+              service: newAppointment.service,
+              status: "confirmed",
+              totalReservations: 1,
+              lastVisit: fullDate,
+              history: [],
+            },
+            ...prev,
+          ]
+        })
 
         // Reload CRM store to sync all views
         await new Promise(resolve => setTimeout(resolve, 300))
@@ -1385,6 +1399,101 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
     loadReservations()
   }, [crmStore.isLoaded, crmStore.data, isSupabaseConfigured])
 
+  useEffect(() => {
+    const reconcileAppointments = async () => {
+      if (!isSupabaseConfigured || !crmStore.isLoaded || !crmStore.data) return
+
+      const appointments = crmStore.data.appointments || []
+      const customers = crmStore.data.customers || []
+
+      const missingCustomerAppointments = appointments.filter(
+        (apt) =>
+          !apt.customerId ||
+          !customers.find((c) => c.id === apt.customerId)
+      )
+
+      const pending = missingCustomerAppointments.filter(
+        (apt) => !reconciledAppointmentsRef.current.has(apt.id)
+      )
+
+      if (pending.length === 0) return
+
+      try {
+        const supabase = createClient()
+        let updatedAny = false
+
+        for (const apt of pending) {
+          const reservationMatch = reservations.find((res) => {
+            const resDate = normalizeDateString(res.date)
+            const resTime = normalizeTimeTo24(res.time)
+            return (
+              resDate === apt.date &&
+              resTime === apt.startTime &&
+              res.service === apt.serviceName
+            )
+          })
+
+          if (!reservationMatch) {
+            reconciledAppointmentsRef.current.add(apt.id)
+            continue
+          }
+
+          const customerPhone = reservationMatch.clientPhone
+          const customerEmail = reservationMatch.clientEmail
+
+          let customerId: string | null = null
+
+          if (customerPhone) {
+            const { data } = await supabase
+              .from("customers")
+              .select("id")
+              .eq("phone", customerPhone)
+              .maybeSingle()
+            customerId = data?.id || null
+          }
+
+          if (!customerId && customerEmail) {
+            const { data } = await supabase
+              .from("customers")
+              .select("id")
+              .eq("email", customerEmail)
+              .maybeSingle()
+            customerId = data?.id || null
+          }
+
+          if (customerId) {
+            const { error } = await supabase
+              .from("appointments")
+              .update({ customer_id: customerId })
+              .eq("id", apt.id)
+
+            if (!error) {
+              updatedAny = true
+            }
+          }
+
+          reconciledAppointmentsRef.current.add(apt.id)
+        }
+
+        if (updatedAny) {
+          crmStore.reload()
+        }
+      } catch (error) {
+        console.error("Error reconciling appointments:", error)
+      }
+    }
+
+    reconcileAppointments()
+  }, [
+    crmStore.isLoaded,
+    crmStore.data,
+    isSupabaseConfigured,
+    reservations,
+    normalizeDateString,
+    normalizeTimeTo24,
+    crmStore,
+  ])
+
   // Sync calendar appointments from CRM store
   useEffect(() => {
     if (crmStore.isLoaded && crmStore.data) {
@@ -1399,6 +1508,17 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
         const calendarAppointments: CalendarAppointment[] = appointments
           .map<CalendarAppointment | null>((apt) => {
             const customer = customers.find((c) => c.id === apt.customerId)
+            const reservationMatch = !customer
+              ? reservations.find((res) => {
+                  const resDate = normalizeDateString(res.date)
+                  const resTime = normalizeTimeTo24(res.time)
+                  return (
+                    resDate === apt.date &&
+                    resTime === apt.startTime &&
+                    res.service === apt.serviceName
+                  )
+                })
+              : null
             const staffMember = apt.staffId ? staff.find((s) => s.id === apt.staffId) : undefined
             
             // Parse appointment date
@@ -1434,9 +1554,9 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
               id: apt.id,
               day: dayIndex, // Use weekDays index (0 = Monday, 1 = Tuesday, etc.)
               time: apt.startTime,
-              client: customer?.fullName || "Cliente desconocido",
-              clientEmail: customer?.email || "",
-              clientPhone: customer?.phone || "",
+              client: customer?.fullName || reservationMatch?.clientName || "Cliente desconocido",
+              clientEmail: customer?.email || reservationMatch?.clientEmail || "",
+              clientPhone: customer?.phone || reservationMatch?.clientPhone || "",
               service: apt.serviceName,
               staffMember: staffMember?.name || "",
               status: status,
@@ -1700,6 +1820,17 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
     return appointments
       .map((apt) => {
         const customer = customers.find((c) => c.id === apt.customerId)
+        const reservationMatch = !customer
+          ? reservations.find((res) => {
+              const resDate = normalizeDateString(res.date)
+              const resTime = normalizeTimeTo24(res.time)
+              return (
+                resDate === apt.date &&
+                resTime === apt.startTime &&
+                res.service === apt.serviceName
+              )
+            })
+          : null
         const customerApts = customerAppointments.get(apt.customerId) || []
         const sortedApts = [...customerApts].sort((a, b) => {
           const dateA = new Date(a.date + "T" + a.startTime)
@@ -1735,9 +1866,9 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
 
         return {
           id: numericId,
-          clientName: customer?.fullName || "Cliente desconocido",
-          clientEmail: customer?.email || "",
-          clientPhone: customer?.phone || "",
+          clientName: customer?.fullName || reservationMatch?.clientName || "Cliente desconocido",
+          clientEmail: customer?.email || reservationMatch?.clientEmail || "",
+          clientPhone: customer?.phone || reservationMatch?.clientPhone || "",
           date: apt.date,
           time: time12,
           service: apt.serviceName,
@@ -1749,7 +1880,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
         }
       })
       .filter((res) => res !== null) as Reservation[]
-  }, [crmStore.isLoaded, crmStore.data])
+  }, [crmStore.isLoaded, crmStore.data, reservations])
 
   const visibleReservations = useMemo(() => {
     if (!user) return []
