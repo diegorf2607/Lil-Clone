@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import { User, Phone, Mail, Calendar, ImageIcon, Gift, Trash2 } from "lucide-react"
+import { User, Phone, Mail, Calendar, ImageIcon, Gift, Trash2, Pencil } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { format, parseISO, differenceInDays, addYears, isAfter } from "date-fns"
 import type { Customer, Appointment } from "@/lib/types/crm"
@@ -12,9 +12,10 @@ interface CustomersListProps {
   appointments: Appointment[]
   onCustomerClick?: (customer: Customer) => void
   onDeleteCustomer?: (customerId: string) => void
+  onEditCustomer?: (customer: Customer) => void
 }
 
-export function CustomersList({ customers, appointments, onCustomerClick, onDeleteCustomer }: CustomersListProps) {
+export function CustomersList({ customers, appointments, onCustomerClick, onDeleteCustomer, onEditCustomer }: CustomersListProps) {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [sortBy, setSortBy] = useState<"name" | "birthday" | "appointments">("name")
@@ -300,6 +301,18 @@ export function CustomersList({ customers, appointments, onCustomerClick, onDele
                         >
                           Ver detalles
                         </button>
+                        {onEditCustomer && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onEditCustomer(customer)
+                            }}
+                            className="text-blue-500 hover:text-blue-700 p-2 rounded-lg hover:bg-blue-50 transition-colors"
+                            title="Editar cliente"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                        )}
                         {onDeleteCustomer && (
                           <button
                             onClick={(e) => handleDelete(e, customer.id, customer.fullName)}

@@ -298,7 +298,7 @@ export default function CustomersPage() {
           customers={crmStore.data.customers}
           appointments={crmStore.data.appointments}
           onDeleteCustomer={handleDeleteCustomer}
-          onCustomerClick={handleEditCustomer}
+          onEditCustomer={handleEditCustomer}
         />
       )}
 
