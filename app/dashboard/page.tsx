@@ -24,6 +24,7 @@ import { useBusinessInfo } from "@/lib/hooks/use-business-info"
 import { CustomersList } from "@/components/customers-list"
 import { DailyCalendarView } from "@/components/daily-calendar-view"
 import { StaffExtraMinutesForm } from "@/components/staff-extra-minutes-form"
+import { createClient } from "@/lib/supabase/client"
 
 type AdminView = "dashboard" | "services" | "calendar" | "reservations" | "config" | "customers"
 
@@ -158,6 +159,16 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
   const pathname = usePathname()
   const permissions = usePermissions()
   const crmStore = useCRMStore()
+  const isSupabaseConfigured = useMemo(
+    () =>
+      !!(
+        typeof window !== "undefined" &&
+        process.env.NEXT_PUBLIC_SUPABASE_URL &&
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY &&
+        process.env.NEXT_PUBLIC_SUPABASE_URL !== "https://your-project.supabase.co"
+      ),
+    []
+  )
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -618,6 +629,36 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
           notes: newAppointment.notes,
         })
 
+        // Also persist to reservations table for the reservations view
+        if (isSupabaseConfigured) {
+          try {
+            const supabase = createClient()
+            const existingReservationsForClient = reservations.filter(
+              (r) => r.clientPhone === (newAppointment.clientPhone || "")
+            )
+            const history = existingReservationsForClient.map((r) => ({
+              date: r.date,
+              service: r.service,
+              status: r.status,
+            }))
+
+            await supabase.from("reservations").insert({
+              client_name: newAppointment.client,
+              client_email: newAppointment.clientEmail || "",
+              client_phone: newAppointment.clientPhone || "",
+              date: fullDate,
+              time: time24,
+              service: newAppointment.service,
+              status: "confirmed",
+              total_reservations: existingReservationsForClient.length + 1,
+              last_visit: fullDate,
+              history: history,
+            })
+          } catch (error) {
+            console.error("Error saving reservation to Supabase:", error)
+          }
+        }
+
         // Reload CRM store to sync all views
         await new Promise(resolve => setTimeout(resolve, 300))
         crmStore.reload()
@@ -691,7 +732,28 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
   const handleDeleteAppointment = async (id: string) => {
     if (confirm("¿Estás seguro de que deseas eliminar esta reserva? Esta acción no se puede deshacer.")) {
       try {
+        const appointmentToDelete = crmStore.data.appointments.find((apt) => apt.id === id)
+        const customerForAppointment = appointmentToDelete
+          ? crmStore.data.customers.find((c) => c.id === appointmentToDelete.customerId)
+          : null
+
         await crmStore.deleteAppointment(id)
+
+        if (isSupabaseConfigured && appointmentToDelete && customerForAppointment) {
+          try {
+            const supabase = createClient()
+            await supabase
+              .from("reservations")
+              .delete()
+              .eq("client_phone", customerForAppointment.phone)
+              .eq("date", appointmentToDelete.date)
+              .eq("time", appointmentToDelete.startTime)
+              .eq("service", appointmentToDelete.serviceName)
+          } catch (error) {
+            console.error("Error deleting reservation from Supabase:", error)
+          }
+        }
+
         toast({
           title: "Reserva eliminada",
           description: "La reserva ha sido eliminada exitosamente",
@@ -1124,14 +1186,50 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
 
   // Sync reservations from CRM store appointments
   useEffect(() => {
-    if (crmStore.isLoaded && crmStore.data) {
+    const loadReservations = async () => {
+      if (!crmStore.isLoaded || !crmStore.data) return
+
       const appointments = crmStore.data.appointments || []
       const customers = crmStore.data.customers || []
-      
+
+      // Prefer Supabase reservations table when available
+      if (isSupabaseConfigured) {
+        try {
+          const supabase = createClient()
+          const { data: reservationsData, error } = await supabase
+            .from("reservations")
+            .select("*")
+            .order("date", { ascending: false })
+
+          if (error) {
+            console.error("Error loading reservations from Supabase:", error)
+          } else if (reservationsData && reservationsData.length > 0) {
+            const mappedReservations: Reservation[] = reservationsData.map((res) => ({
+              id: parseInt(res.id.replace(/-/g, "").substring(0, 15), 16) || Date.now(),
+              clientName: res.client_name,
+              clientEmail: res.client_email || "",
+              clientPhone: res.client_phone,
+              date: res.date,
+              time: res.time,
+              service: res.service,
+              status: res.status as "confirmed" | "completed" | "cancelled",
+              totalReservations: res.total_reservations || 1,
+              lastVisit: res.last_visit || res.date,
+              history: (res.history as Array<{ date: string; service: string; status: string }>) || [],
+            }))
+
+            setReservations(mappedReservations)
+            return
+          }
+        } catch (error) {
+          console.error("Error loading reservations from Supabase:", error)
+        }
+      }
+
+      // Fallback to appointments if reservations table is empty/unavailable
       if (appointments.length > 0) {
-        // Group appointments by customer to calculate totalReservations and history
         const customerAppointments = new Map<string, typeof appointments>()
-        
+
         appointments.forEach((apt) => {
           if (!customerAppointments.has(apt.customerId)) {
             customerAppointments.set(apt.customerId, [])
@@ -1139,79 +1237,72 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
           customerAppointments.get(apt.customerId)!.push(apt)
         })
 
-        // Convert appointments to reservations
-        const newReservations: Reservation[] = appointments.map((apt) => {
-          const customer = customers.find((c) => c.id === apt.customerId)
-          if (!customer) return null
+        const newReservations: Reservation[] = appointments
+          .map((apt) => {
+            const customer = customers.find((c) => c.id === apt.customerId)
+            if (!customer) return null
 
-          // Get all appointments for this customer
-          const customerApts = customerAppointments.get(apt.customerId) || []
-          const sortedApts = [...customerApts].sort((a, b) => {
-            const dateA = new Date(a.date + "T" + a.startTime)
-            const dateB = new Date(b.date + "T" + b.startTime)
-            return dateB.getTime() - dateA.getTime() // Most recent first
+            const customerApts = customerAppointments.get(apt.customerId) || []
+            const sortedApts = [...customerApts].sort((a, b) => {
+              const dateA = new Date(a.date + "T" + a.startTime)
+              const dateB = new Date(b.date + "T" + b.startTime)
+              return dateB.getTime() - dateA.getTime()
+            })
+
+            const totalReservations = customerApts.length
+            const lastVisit = sortedApts.length > 0 ? sortedApts[0].date : "N/A"
+
+            const history = sortedApts
+              .filter((a) => a.id !== apt.id)
+              .map((a) => ({
+                date: a.date,
+                service: a.serviceName,
+                status: "completed" as const,
+              }))
+
+            const [hours, minutes] = apt.startTime.split(":")
+            const hour24 = parseInt(hours)
+            const hour12 = hour24 === 0 ? 12 : hour24 > 12 ? hour24 - 12 : hour24
+            const period = hour24 >= 12 ? "PM" : "AM"
+            const time12 = `${hour12}:${minutes} ${period}`
+
+            let status: "confirmed" | "completed" | "cancelled" = "confirmed"
+            const appointmentDate = new Date(apt.date + "T" + apt.startTime)
+            const now = new Date()
+            if (appointmentDate < now) {
+              status = "completed"
+            }
+
+            const numericId = apt.id
+              ? parseInt(apt.id.replace(/-/g, "").substring(0, 15), 16) ||
+                apt.id.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0)
+              : Date.now() + Math.random() * 1000
+
+            return {
+              id: numericId,
+              clientName: customer.fullName,
+              clientEmail: customer.email || "",
+              clientPhone: customer.phone,
+              date: apt.date,
+              time: time12,
+              service: apt.serviceName,
+              status,
+              totalReservations,
+              lastVisit,
+              history,
+              appointmentId: apt.id,
+            }
           })
-
-          // Calculate total reservations and last visit
-          const totalReservations = customerApts.length
-          const lastVisit = sortedApts.length > 0 ? sortedApts[0].date : "N/A"
-
-          // Build history (excluding current appointment)
-          const history = sortedApts
-            .filter((a) => a.id !== apt.id)
-            .map((a) => ({
-              date: a.date,
-              service: a.serviceName,
-              status: "completed" as const, // Default status for history
-            }))
-
-          // Convert time from 24-hour to 12-hour format
-          const [hours, minutes] = apt.startTime.split(":")
-          const hour24 = parseInt(hours)
-          const hour12 = hour24 === 0 ? 12 : hour24 > 12 ? hour24 - 12 : hour24
-          const period = hour24 >= 12 ? "PM" : "AM"
-          const time12 = `${hour12}:${minutes} ${period}`
-
-          // Determine status (default to "confirmed" for new appointments)
-          let status: "confirmed" | "completed" | "cancelled" = "confirmed"
-          // You can add logic here to determine status based on date or other criteria
-          const appointmentDate = new Date(apt.date + "T" + apt.startTime)
-          const now = new Date()
-          if (appointmentDate < now) {
-            status = "completed" // Past appointments are completed
-          }
-
-          // Generate a unique numeric ID from the appointment UUID for compatibility
-          // Use the full UUID hash to ensure uniqueness
-          const numericId = apt.id 
-            ? parseInt(apt.id.replace(/-/g, "").substring(0, 15), 16) || 
-              apt.id.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0)
-            : Date.now() + Math.random() * 1000
-
-          return {
-            id: numericId,
-            clientName: customer.fullName,
-            clientEmail: customer.email || "",
-            clientPhone: customer.phone,
-            date: apt.date,
-            time: time12,
-            service: apt.serviceName,
-            status: status as "confirmed" | "completed" | "cancelled",
-            totalReservations: totalReservations,
-            lastVisit: lastVisit,
-            history: history,
-            // Store the original appointment ID for reference
-            appointmentId: apt.id,
-          }
-        }).filter((res) => res !== null) as Reservation[]
+          .filter((res) => res !== null) as Reservation[]
 
         setReservations(newReservations)
-      } else if (crmStore.isLoaded && crmStore.data && (!crmStore.data.appointments || crmStore.data.appointments.length === 0)) {
-        // No appointments yet, keep empty array
+      } else {
         setReservations([])
       }
     }
-  }, [crmStore.isLoaded, crmStore.data])
+
+    loadReservations()
+  }, [crmStore.isLoaded, crmStore.data, isSupabaseConfigured])
 
   // Sync calendar appointments from CRM store
   useEffect(() => {
