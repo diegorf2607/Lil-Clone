@@ -28,6 +28,7 @@ export default function CustomersPage() {
   const router = useRouter()
   const crmStore = useCRMStore()
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [editingCustomer, setEditingCustomer] = useState<{ id: string; fullName: string; email?: string; phone: string; birthdate?: string } | null>(null)
   const [services, setServices] = useState<Service[]>([])
   const [formData, setFormData] = useState({
     name: "",
@@ -81,6 +82,24 @@ export default function CustomersPage() {
     }
   }
 
+  const handleEditCustomer = (customer: { id: string; fullName: string; email?: string; phone: string; birthdate?: string }) => {
+    setEditingCustomer(customer)
+    setFormData({
+      name: customer.fullName,
+      email: customer.email || "",
+      phone: customer.phone,
+      birthdate: customer.birthdate || "",
+      createAppointment: false,
+      appointmentService: "",
+      appointmentDate: "",
+      appointmentTime: "",
+      appointmentStaff: "",
+      appointmentNotes: "",
+      hasExistingAppointment: false,
+    })
+    setIsCreateModalOpen(true)
+  }
+
   const handleCreateCustomer = async () => {
     if (!formData.name || !formData.phone) {
       toast({
@@ -114,9 +133,9 @@ export default function CustomersPage() {
     }
 
     try {
-      // Create customer first
+      // Create or update customer
       await crmStore.upsertCustomer({
-        id: `temp_${Date.now()}`,
+        id: editingCustomer?.id || `temp_${Date.now()}`,
         fullName: formData.name,
         phone: formData.phone,
         email: formData.email || undefined,
@@ -188,13 +207,17 @@ export default function CustomersPage() {
         })
       } else if (formData.hasExistingAppointment) {
         toast({
-          title: "Cliente creado",
-          description: `${formData.name} ha sido agregado. Puedes crear la cita manualmente después.`,
+          title: editingCustomer ? "Cliente actualizado" : "Cliente creado",
+          description: editingCustomer 
+            ? `${formData.name} ha sido actualizado. Puedes crear la cita manualmente después.`
+            : `${formData.name} ha sido agregado. Puedes crear la cita manualmente después.`,
         })
       } else {
         toast({
-          title: "Cliente creado",
-          description: `${formData.name} ha sido agregado exitosamente`,
+          title: editingCustomer ? "Cliente actualizado" : "Cliente creado",
+          description: editingCustomer 
+            ? `${formData.name} ha sido actualizado exitosamente`
+            : `${formData.name} ha sido agregado exitosamente`,
         })
       }
 
@@ -216,6 +239,7 @@ export default function CustomersPage() {
         appointmentNotes: "",
         hasExistingAppointment: false,
       })
+      setEditingCustomer(null)
       setIsCreateModalOpen(false)
     } catch (error) {
       console.error("Error creating customer:", error)
@@ -274,6 +298,7 @@ export default function CustomersPage() {
           customers={crmStore.data.customers}
           appointments={crmStore.data.appointments}
           onDeleteCustomer={handleDeleteCustomer}
+          onCustomerClick={handleEditCustomer}
         />
       )}
 
@@ -281,9 +306,13 @@ export default function CustomersPage() {
       <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
         <DialogContent className="sm:max-w-[600px] bg-white max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-bold text-[#2C293F]">Crear Nuevo Cliente</DialogTitle>
+            <DialogTitle className="text-2xl font-bold text-[#2C293F]">
+              {editingCustomer ? "Editar Cliente" : "Crear Nuevo Cliente"}
+            </DialogTitle>
             <DialogDescription className="text-[#AFA1FD]">
-              Completa la información del cliente. La fecha de nacimiento es opcional pero permite notificaciones de cumpleaños.
+              {editingCustomer 
+                ? "Actualiza la información del cliente." 
+                : "Completa la información del cliente. La fecha de nacimiento es opcional pero permite notificaciones de cumpleaños."}
             </DialogDescription>
           </DialogHeader>
 
@@ -340,7 +369,8 @@ export default function CustomersPage() {
               </p>
             </div>
 
-            {/* Appointment Section */}
+            {/* Appointment Section - Only show when creating new customer, not editing */}
+            {!editingCustomer && (
             <div className="pt-4 border-t border-gray-200">
               <div className="flex items-center justify-between mb-4">
                 <Label className="text-[#2C293F] font-semibold flex items-center gap-2">
@@ -478,6 +508,7 @@ export default function CustomersPage() {
                 </div>
               )}
             </div>
+            )}
           </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
@@ -485,6 +516,7 @@ export default function CustomersPage() {
               variant="outline"
               onClick={() => {
                 setIsCreateModalOpen(false)
+                setEditingCustomer(null)
                 setFormData({
                   name: "",
                   email: "",
@@ -506,7 +538,7 @@ export default function CustomersPage() {
               onClick={handleCreateCustomer}
               className="bg-gradient-to-r from-[#AFA1FD] to-[#8B7FE8] text-white hover:from-[#9890E8] hover:to-[#7A6FD8]"
             >
-              Crear Cliente
+              {editingCustomer ? "Guardar Cambios" : "Crear Cliente"}
             </Button>
           </div>
         </DialogContent>
