@@ -169,6 +169,11 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
       ),
     []
   )
+  const formatCurrencyPEN = useMemo(
+    () => (value: number) =>
+      new Intl.NumberFormat("es-PE", { style: "currency", currency: "PEN" }).format(value),
+    []
+  )
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -1316,7 +1321,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
       
       if (appointments.length > 0) {
         const calendarAppointments: CalendarAppointment[] = appointments
-          .map((apt) => {
+          .map<CalendarAppointment | null>((apt) => {
             const customer = customers.find((c) => c.id === apt.customerId)
             const staffMember = apt.staffId ? staff.find((s) => s.id === apt.staffId) : undefined
             
@@ -4064,7 +4069,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
                         <SelectContent>
                           {services.map((service) => (
                             <SelectItem key={service.id} value={service.name}>
-                              {service.name} - {service.duration} min - ${service.price}
+                              {service.name} - {service.duration} min - {formatCurrencyPEN(service.price)}
                             </SelectItem>
                           ))}
                         </SelectContent>
