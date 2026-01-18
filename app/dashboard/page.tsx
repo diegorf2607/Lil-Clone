@@ -1671,7 +1671,17 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
         setAppointments([])
       }
     }
-  }, [crmStore.isLoaded, crmStore.data?.appointments, crmStore.data?.customers, crmStore.data?.staff, services, currentDate])
+  }, [
+    crmStore.isLoaded,
+    crmStore.data?.appointments,
+    crmStore.data?.customers,
+    crmStore.data?.staff,
+    services,
+    currentDate,
+    reservations,
+    normalizeDateString,
+    normalizeTimeTo24,
+  ])
 
   const handleSaveBusinessInfo = async () => {
     // Validate required fields
