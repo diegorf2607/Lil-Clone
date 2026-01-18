@@ -169,10 +169,12 @@ export function useCRMStore() {
               updateData.birthdate = customer.birthdate || null
             }
             
-            // Only update full_name if the existing customer has no name or it's empty
-            // But don't overwrite with empty name
+            // Always update full_name if provided and different
+            // This ensures that when creating reservations with different names for the same phone,
+            // the customer name gets updated to match the reservation name
+            // This is necessary because phone has UNIQUE constraint in Supabase
             if (customer.fullName && customer.fullName.trim()) {
-              if (!currentCustomer?.full_name || currentCustomer.full_name.trim() === "") {
+              if (currentCustomer?.full_name?.trim().toLowerCase() !== customer.fullName.trim().toLowerCase()) {
                 updateData.full_name = customer.fullName
               }
             }

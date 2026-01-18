@@ -510,32 +510,70 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
 
       // Save to CRM store (this will sync all views via useEffect)
       if (crmStore.isLoaded) {
-        // Get or create customer
-        const existingCustomer = crmStore.getCustomerByPhone(newAppointment.clientPhone || "")
+        // Strategy: Search by phone AND name to find exact match
+        // If phone matches but name is different, create NEW customer (different person)
+        // If both phone and name match, reuse existing customer
         
-        // Upsert customer (will get UUID from Supabase)
-        await crmStore.upsertCustomer({
-          id: existingCustomer?.id || `temp_${Date.now()}`, // Temporary, will be replaced
-          fullName: newAppointment.client,
-          phone: newAppointment.clientPhone || "",
-          email: newAppointment.clientEmail,
-        })
-
-        // Get the customer ID after upsert (wait a bit for it to be saved)
-        await new Promise(resolve => setTimeout(resolve, 300))
+        let customerId: string | null = null
         
-        // Try to get customer by phone first, then by email if phone is empty
-        let updatedCustomer = null
+        // First, try to find customer by phone AND name (exact match)
+        let exactMatchCustomer: typeof crmStore.data.customers[0] | undefined = undefined
         if (newAppointment.clientPhone) {
-          updatedCustomer = crmStore.getCustomerByPhone(newAppointment.clientPhone)
+          const customersWithSamePhone = crmStore.data.customers.filter(c => c.phone === newAppointment.clientPhone)
+          exactMatchCustomer = customersWithSamePhone.find(
+            c => c.fullName.trim().toLowerCase() === newAppointment.client.trim().toLowerCase()
+          )
         }
         
-        // If not found by phone, try by email
-        if (!updatedCustomer && newAppointment.clientEmail) {
-          updatedCustomer = crmStore.data.customers.find(c => c.email === newAppointment.clientEmail)
+        // If exact match found, reuse it
+        if (exactMatchCustomer) {
+          customerId = exactMatchCustomer.id
+        } else {
+          // No exact match - create new customer (either new person or existing person with different name)
+          // This ensures each reservation with different name gets its own customer record
+          await crmStore.upsertCustomer({
+            id: `temp_${Date.now()}`,
+            fullName: newAppointment.client,
+            phone: newAppointment.clientPhone || "",
+            email: newAppointment.clientEmail,
+          })
+          
+          // Wait for customer to be saved
+          await new Promise(resolve => setTimeout(resolve, 500))
+          
+          // Reload to get fresh data from Supabase
+          crmStore.reload()
+          await new Promise(resolve => setTimeout(resolve, 300))
+          
+          // Find the newly created customer by phone AND name
+          if (newAppointment.clientPhone) {
+            const customersWithSamePhone = crmStore.data.customers.filter(c => c.phone === newAppointment.clientPhone)
+            const matchingCustomer = customersWithSamePhone.find(
+              c => c.fullName.trim().toLowerCase() === newAppointment.client.trim().toLowerCase()
+            )
+            customerId = matchingCustomer?.id || null
+          }
+          
+          // If still not found, try by email
+          if (!customerId && newAppointment.clientEmail) {
+            const customerByEmail = crmStore.data.customers.find(
+              c => c.email === newAppointment.clientEmail && 
+                   c.fullName.trim().toLowerCase() === newAppointment.client.trim().toLowerCase()
+            )
+            customerId = customerByEmail?.id || null
+          }
+          
+          // Last resort: get most recent customer with this phone (should be the one we just created)
+          if (!customerId && newAppointment.clientPhone) {
+            const customersWithSamePhone = crmStore.data.customers.filter(c => c.phone === newAppointment.clientPhone)
+            if (customersWithSamePhone.length > 0) {
+              // Get the last one (most recent)
+              customerId = customersWithSamePhone[customersWithSamePhone.length - 1]?.id || null
+            }
+          }
         }
         
-        if (!updatedCustomer || !updatedCustomer.id) {
+        if (!customerId) {
           toast({
             title: "Error",
             description: "No se pudo obtener el ID del cliente después de guardar. Por favor intenta de nuevo.",
@@ -543,7 +581,6 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
           })
           return
         }
-        const customerId = updatedCustomer.id
 
         // Get staff ID - find existing staff by name or use null
         let staffId: string | null = null
