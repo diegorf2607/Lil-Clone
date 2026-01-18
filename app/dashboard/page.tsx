@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useRef, useEffect } from "react" // Added useEffect
+import { useState, useRef, useEffect, useCallback, useMemo } from "react" // Added useEffect
 import { motion, AnimatePresence } from "framer-motion"
 import { LayoutDashboard, Scissors, Calendar, ClipboardList, Settings, LogOut, TrendingUp, Users, DollarSign, BarChart3, Plus, ChevronLeft, ChevronRight, Building2, LinkIcon, QrCode, Copy, Check, Upload, Sparkles, ArrowUpRight, Clock, UserPlus, CalendarClock, X, Lock, Package, Layers, User, ArrowRight, ImageIcon, Menu } from 'lucide-react'
 import { Button } from "@/components/ui/button"
@@ -17,7 +17,6 @@ import { toast } from "@/components/ui/use-toast" // Added toast
 import { useAuth } from "@/lib/auth-context"
 import { usePermissions } from "@/lib/use-permissions"
 import { useRouter, usePathname } from "next/navigation"
-import { useMemo } from "react"
 import { useCRMStore } from "@/lib/hooks/use-crm-store"
 import { useServices } from "@/lib/hooks/use-services"
 import { useBusinessInfo } from "@/lib/hooks/use-business-info"
@@ -1038,6 +1037,87 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
     }
   }
 
+  const derivedReservations = useMemo(() => {
+    if (!crmStore.isLoaded || !crmStore.data) return []
+
+    const appointments = crmStore.data.appointments || []
+    const customers = crmStore.data.customers || []
+
+    if (appointments.length === 0) return []
+
+    const customerAppointments = new Map<string, typeof appointments>()
+    appointments.forEach((apt) => {
+      if (!customerAppointments.has(apt.customerId)) {
+        customerAppointments.set(apt.customerId, [])
+      }
+      customerAppointments.get(apt.customerId)!.push(apt)
+    })
+
+    return appointments
+      .map((apt) => {
+        const customer = customers.find((c) => c.id === apt.customerId)
+        const reservationMatch = !customer
+          ? reservations.find((res) => {
+              const resDate = normalizeDateString(res.date)
+              const resTime = normalizeTimeTo24(res.time)
+              return (
+                resDate === apt.date &&
+                resTime === apt.startTime &&
+                res.service === apt.serviceName
+              )
+            })
+          : null
+        const customerApts = customerAppointments.get(apt.customerId) || []
+        const sortedApts = [...customerApts].sort((a, b) => {
+          const dateA = new Date(a.date + "T" + a.startTime)
+          const dateB = new Date(b.date + "T" + b.startTime)
+          return dateB.getTime() - dateA.getTime()
+        })
+
+        const totalReservations = customerApts.length
+        const lastVisit = sortedApts.length > 0 ? sortedApts[0].date : "N/A"
+        const history = sortedApts
+          .filter((a) => a.id !== apt.id)
+          .map((a) => ({
+            date: a.date,
+            service: a.serviceName,
+            status: "completed" as const,
+          }))
+
+        const [hours, minutes] = apt.startTime.split(":")
+        const hour24 = parseInt(hours)
+        const hour12 = hour24 === 0 ? 12 : hour24 > 12 ? hour24 - 12 : hour24
+        const period = hour24 >= 12 ? "PM" : "AM"
+        const time12 = `${hour12}:${minutes} ${period}`
+
+        const appointmentDate = new Date(apt.date + "T" + apt.startTime)
+        const now = new Date()
+        const status: "confirmed" | "completed" | "cancelled" =
+          appointmentDate < now ? "completed" : "confirmed"
+
+        const numericId = apt.id
+          ? parseInt(apt.id.replace(/-/g, "").substring(0, 15), 16) ||
+            apt.id.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0)
+          : Date.now() + Math.random() * 1000
+
+        return {
+          id: numericId,
+          clientName: customer?.fullName || reservationMatch?.clientName || "Cliente desconocido",
+          clientEmail: customer?.email || reservationMatch?.clientEmail || "",
+          clientPhone: customer?.phone || reservationMatch?.clientPhone || "",
+          date: apt.date,
+          time: time12,
+          service: apt.serviceName,
+          status,
+          totalReservations,
+          lastVisit,
+          history,
+          appointmentId: apt.id,
+        }
+      })
+      .filter((res) => res !== null) as Reservation[]
+  }, [crmStore.isLoaded, crmStore.data, reservations])
+
   const dashboardReservationsSource = useMemo(
     () => (reservations.length > 0 ? reservations : derivedReservations),
     [reservations, derivedReservations]
@@ -1860,87 +1940,6 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
       })
       .filter((res) => res !== null) as Reservation[]
   }, [crmStore.isLoaded, crmStore.data, user])
-
-  const derivedReservations = useMemo(() => {
-    if (!crmStore.isLoaded || !crmStore.data) return []
-
-    const appointments = crmStore.data.appointments || []
-    const customers = crmStore.data.customers || []
-
-    if (appointments.length === 0) return []
-
-    const customerAppointments = new Map<string, typeof appointments>()
-    appointments.forEach((apt) => {
-      if (!customerAppointments.has(apt.customerId)) {
-        customerAppointments.set(apt.customerId, [])
-      }
-      customerAppointments.get(apt.customerId)!.push(apt)
-    })
-
-    return appointments
-      .map((apt) => {
-        const customer = customers.find((c) => c.id === apt.customerId)
-        const reservationMatch = !customer
-          ? reservations.find((res) => {
-              const resDate = normalizeDateString(res.date)
-              const resTime = normalizeTimeTo24(res.time)
-              return (
-                resDate === apt.date &&
-                resTime === apt.startTime &&
-                res.service === apt.serviceName
-              )
-            })
-          : null
-        const customerApts = customerAppointments.get(apt.customerId) || []
-        const sortedApts = [...customerApts].sort((a, b) => {
-          const dateA = new Date(a.date + "T" + a.startTime)
-          const dateB = new Date(b.date + "T" + b.startTime)
-          return dateB.getTime() - dateA.getTime()
-        })
-
-        const totalReservations = customerApts.length
-        const lastVisit = sortedApts.length > 0 ? sortedApts[0].date : "N/A"
-        const history = sortedApts
-          .filter((a) => a.id !== apt.id)
-          .map((a) => ({
-            date: a.date,
-            service: a.serviceName,
-            status: "completed" as const,
-          }))
-
-        const [hours, minutes] = apt.startTime.split(":")
-        const hour24 = parseInt(hours)
-        const hour12 = hour24 === 0 ? 12 : hour24 > 12 ? hour24 - 12 : hour24
-        const period = hour24 >= 12 ? "PM" : "AM"
-        const time12 = `${hour12}:${minutes} ${period}`
-
-        const appointmentDate = new Date(apt.date + "T" + apt.startTime)
-        const now = new Date()
-        const status: "confirmed" | "completed" | "cancelled" =
-          appointmentDate < now ? "completed" : "confirmed"
-
-        const numericId = apt.id
-          ? parseInt(apt.id.replace(/-/g, "").substring(0, 15), 16) ||
-            apt.id.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0)
-          : Date.now() + Math.random() * 1000
-
-        return {
-          id: numericId,
-          clientName: customer?.fullName || reservationMatch?.clientName || "Cliente desconocido",
-          clientEmail: customer?.email || reservationMatch?.clientEmail || "",
-          clientPhone: customer?.phone || reservationMatch?.clientPhone || "",
-          date: apt.date,
-          time: time12,
-          service: apt.serviceName,
-          status,
-          totalReservations,
-          lastVisit,
-          history,
-          appointmentId: apt.id,
-        }
-      })
-      .filter((res) => res !== null) as Reservation[]
-  }, [crmStore.isLoaded, crmStore.data, reservations])
 
   const visibleReservations = useMemo(() => {
     if (!user) return []
