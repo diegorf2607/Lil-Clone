@@ -2001,7 +2001,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
                 className="p-8"
               >
                 <div className="mb-8">
-                  <h1 className="text-5xl font-bold bg-gradient-to-r from-[#2C293F] via-[#AFA1FD] to-[#2C293F] bg-clip-text text-transparent mb-3">
+                  <h1 className="text-5xl font-bold text-[#2C293F] mb-3">
                     Dashboard
                   </h1>
                   <p className="text-[#AFA1FD] text-lg font-medium">Bienvenido al panel administrativo</p>
@@ -2204,7 +2204,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
               >
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
                   <div>
-                    <h1 className="text-5xl font-bold bg-gradient-to-r from-[#2C293F] via-[#AFA1FD] to-[#2C293F] bg-clip-text text-transparent mb-3">
+                    <h1 className="text-5xl font-bold text-[#2C293F] mb-3">
                       Servicios
                     </h1>
                     <p className="text-[#AFA1FD] text-lg font-medium">Gestiona los servicios que ofrece tu negocio</p>
@@ -2510,7 +2510,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
                 <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-md -mx-4 md:mx-0 px-4 md:px-0 py-4 md:py-0 md:static mb-6 md:mb-8 border-b md:border-b-0 border-gray-200">
                   <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 md:gap-0">
                     <div>
-                      <h1 className="text-5xl font-bold bg-gradient-to-r from-[#2C293F] via-[#AFA1FD] to-[#2C293F] bg-clip-text text-transparent mb-3">
+                      <h1 className="text-5xl font-bold text-[#2C293F] mb-3">
                         Calendario
                       </h1>
                       <p className="text-[#AFA1FD] text-sm md:text-lg font-medium">Gestiona tu horario y reservas</p>
@@ -3142,7 +3142,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
                   <>
                 <div className="mb-8 flex items-start justify-between">
                   <div>
-                    <h1 className="text-5xl font-bold bg-gradient-to-r from-[#2C293F] via-[#AFA1FD] to-[#2C293F] bg-clip-text text-transparent mb-3">
+                    <h1 className="text-5xl font-bold text-[#2C293F] mb-3">
                       Reservas
                     </h1>
                     <p className="text-[#AFA1FD] text-lg font-medium">
@@ -3721,7 +3721,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
                 className="p-8"
               >
                 <div className="mb-8">
-                  <h1 className="text-5xl font-bold bg-gradient-to-r from-[#2C293F] via-[#AFA1FD] to-[#2C293F] bg-clip-text text-transparent mb-3">
+                  <h1 className="text-5xl font-bold text-[#2C293F] mb-3">
                     Clientes
                   </h1>
                   <p className="text-[#AFA1FD] text-lg font-medium">
@@ -3758,7 +3758,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
                 ) : (
                   <>
                 <div className="mb-8">
-                  <h1 className="text-5xl font-bold bg-gradient-to-r from-[#2C293F] via-[#AFA1FD] to-[#2C293F] bg-clip-text text-transparent mb-3">
+                  <h1 className="text-5xl font-bold text-[#2C293F] mb-3">
                     Configutación
                   </h1>
                   <p className="text-[#AFA1FD] text-lg font-medium">Ajusta las preferencias de tu negocio</p>
