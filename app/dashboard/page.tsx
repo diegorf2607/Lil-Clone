@@ -538,23 +538,48 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
 
         // Wait for customer to be saved/updated in Supabase
         await new Promise(resolve => setTimeout(resolve, 500))
-        
+
         // Reload to get fresh data from Supabase (including updated customer name)
         crmStore.reload()
         await new Promise(resolve => setTimeout(resolve, 300))
-        
-        // Get the customer ID after upsert
+
+        // Get the customer ID after upsert (prefer direct Supabase lookup)
         let customerId: string | null = null
-        if (newAppointment.clientPhone) {
-          // Get customer by phone (phone is UNIQUE, so there's only one)
-          const updatedCustomer = crmStore.getCustomerByPhone(newAppointment.clientPhone)
-          customerId = updatedCustomer?.id || null
+        if (isSupabaseConfigured) {
+          try {
+            const supabase = createClient()
+            if (newAppointment.clientPhone) {
+              const { data } = await supabase
+                .from("customers")
+                .select("id")
+                .eq("phone", newAppointment.clientPhone)
+                .maybeSingle()
+              customerId = data?.id || null
+            }
+
+            if (!customerId && newAppointment.clientEmail) {
+              const { data } = await supabase
+                .from("customers")
+                .select("id")
+                .eq("email", newAppointment.clientEmail)
+                .maybeSingle()
+              customerId = data?.id || null
+            }
+          } catch (error) {
+            console.error("Error getting customer ID from Supabase:", error)
+          }
         }
-        
-        // If not found by phone, try by email
-        if (!customerId && newAppointment.clientEmail) {
-          const customerByEmail = crmStore.data.customers.find(c => c.email === newAppointment.clientEmail)
-          customerId = customerByEmail?.id || null
+
+        if (!customerId) {
+          if (newAppointment.clientPhone) {
+            const updatedCustomer = crmStore.getCustomerByPhone(newAppointment.clientPhone)
+            customerId = updatedCustomer?.id || null
+          }
+
+          if (!customerId && newAppointment.clientEmail) {
+            const customerByEmail = crmStore.data.customers.find(c => c.email === newAppointment.clientEmail)
+            customerId = customerByEmail?.id || null
+          }
         }
         
         if (!customerId) {
@@ -1228,6 +1253,58 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
           }
         } catch (error) {
           console.error("Error loading reservations from Supabase:", error)
+        }
+      }
+
+      // Try Supabase appointments join customers before local fallback
+      if (isSupabaseConfigured) {
+        try {
+          const supabase = createClient()
+          const { data: appointmentRows, error } = await supabase
+            .from("appointments")
+            .select("id, date, start_time, service_name, customer:customer_id(full_name,email,phone)")
+            .order("date", { ascending: false })
+
+          if (!error && appointmentRows && appointmentRows.length > 0) {
+            const mappedFromSupabase: Reservation[] = appointmentRows.map((apt) => {
+              const customer = Array.isArray(apt.customer) ? apt.customer[0] : apt.customer
+              const [hours, minutes] = apt.start_time.split(":")
+              const hour24 = parseInt(hours)
+              const hour12 = hour24 === 0 ? 12 : hour24 > 12 ? hour24 - 12 : hour24
+              const period = hour24 >= 12 ? "PM" : "AM"
+              const time12 = `${hour12}:${minutes} ${period}`
+
+              const appointmentDate = new Date(apt.date + "T" + apt.start_time)
+              const now = new Date()
+              const status: "confirmed" | "completed" | "cancelled" =
+                appointmentDate < now ? "completed" : "confirmed"
+
+              const numericId = apt.id
+                ? parseInt(apt.id.replace(/-/g, "").substring(0, 15), 16) ||
+                  apt.id.split("").reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0)
+                : Date.now() + Math.random() * 1000
+
+              return {
+                id: numericId,
+                clientName: customer?.full_name || "Cliente desconocido",
+                clientEmail: customer?.email || "",
+                clientPhone: customer?.phone || "",
+                date: apt.date,
+                time: time12,
+                service: apt.service_name,
+                status,
+                totalReservations: 1,
+                lastVisit: apt.date,
+                history: [],
+                appointmentId: apt.id,
+              }
+            })
+
+            setReservations(mappedFromSupabase)
+            return
+          }
+        } catch (error) {
+          console.error("Error loading appointments join customers:", error)
         }
       }
 
