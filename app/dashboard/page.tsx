@@ -1245,7 +1245,6 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
         const newReservations: Reservation[] = appointments
           .map((apt) => {
             const customer = customers.find((c) => c.id === apt.customerId)
-            if (!customer) return null
 
             const customerApts = customerAppointments.get(apt.customerId) || []
             const sortedApts = [...customerApts].sort((a, b) => {
@@ -1285,9 +1284,9 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
 
             return {
               id: numericId,
-              clientName: customer.fullName,
-              clientEmail: customer.email || "",
-              clientPhone: customer.phone,
+              clientName: customer?.fullName || "Cliente desconocido",
+              clientEmail: customer?.email || "",
+              clientPhone: customer?.phone || "",
               date: apt.date,
               time: time12,
               service: apt.serviceName,
@@ -1532,8 +1531,84 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
     return appointments
   }, [appointments, user])
 
+  const staffReservations = useMemo(() => {
+    if (!user || user.role !== "staff" || !crmStore.isLoaded || !crmStore.data) return []
+
+    const staffRecord = crmStore.data.staff.find((s) => s.name === user.name)
+    if (!staffRecord) return []
+
+    const staffAppointments = crmStore.data.appointments.filter(
+      (apt) => apt.staffId === staffRecord.id
+    )
+    const customers = crmStore.data.customers
+
+    if (staffAppointments.length === 0) return []
+
+    const customerAppointments = new Map<string, typeof staffAppointments>()
+    staffAppointments.forEach((apt) => {
+      if (!customerAppointments.has(apt.customerId)) {
+        customerAppointments.set(apt.customerId, [])
+      }
+      customerAppointments.get(apt.customerId)!.push(apt)
+    })
+
+    return staffAppointments
+      .map((apt) => {
+        const customer = customers.find((c) => c.id === apt.customerId)
+        const customerApts = customerAppointments.get(apt.customerId) || []
+        const sortedApts = [...customerApts].sort((a, b) => {
+          const dateA = new Date(a.date + "T" + a.startTime)
+          const dateB = new Date(b.date + "T" + b.startTime)
+          return dateB.getTime() - dateA.getTime()
+        })
+
+        const totalReservations = customerApts.length
+        const lastVisit = sortedApts.length > 0 ? sortedApts[0].date : "N/A"
+        const history = sortedApts
+          .filter((a) => a.id !== apt.id)
+          .map((a) => ({
+            date: a.date,
+            service: a.serviceName,
+            status: "completed" as const,
+          }))
+
+        const [hours, minutes] = apt.startTime.split(":")
+        const hour24 = parseInt(hours)
+        const hour12 = hour24 === 0 ? 12 : hour24 > 12 ? hour24 - 12 : hour24
+        const period = hour24 >= 12 ? "PM" : "AM"
+        const time12 = `${hour12}:${minutes} ${period}`
+
+        const appointmentDate = new Date(apt.date + "T" + apt.startTime)
+        const now = new Date()
+        const status: "confirmed" | "completed" | "cancelled" =
+          appointmentDate < now ? "completed" : "confirmed"
+
+        const numericId = apt.id
+          ? parseInt(apt.id.replace(/-/g, "").substring(0, 15), 16) ||
+            apt.id.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0)
+          : Date.now() + Math.random() * 1000
+
+        return {
+          id: numericId,
+          clientName: customer?.fullName || "Cliente desconocido",
+          clientEmail: customer?.email || "",
+          clientPhone: customer?.phone || "",
+          date: apt.date,
+          time: time12,
+          service: apt.serviceName,
+          status,
+          totalReservations,
+          lastVisit,
+          history,
+          appointmentId: apt.id,
+        }
+      })
+      .filter((res) => res !== null) as Reservation[]
+  }, [crmStore.isLoaded, crmStore.data, user])
+
   const visibleReservations = useMemo(() => {
-    if (!user || user.role === "staff") return []
+    if (!user) return []
+    if (user.role === "staff") return staffReservations
     
     if (user.role === "dueno") {
       return reservations // Todas
@@ -1541,7 +1616,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
     
     // Admin y Recepcionista: todas las reservas (locationId no implementado aún)
     return reservations
-  }, [reservations, user])
+  }, [reservations, user, staffReservations])
 
   const filteredReservations = visibleReservations.filter((res) => {
     const matchesSearch =
