@@ -310,9 +310,9 @@ export default function CustomersPage() {
               {editingCustomer ? "Editar Cliente" : "Crear Nuevo Cliente"}
             </DialogTitle>
             <DialogDescription className="text-[#AFA1FD]">
-              {editingCustomer 
-                ? "Actualiza la información del cliente." 
-                : "Completa la información del cliente. La fecha de nacimiento es opcional pero permite notificaciones de cumpleaños."}
+              {editingCustomer
+                ? "Actualiza la información del cliente."
+                : "Completa la información del cliente. La fecha de nacimiento es opcional para recibir promociones y descuentos."}
             </DialogDescription>
           </DialogHeader>
 
@@ -365,7 +365,7 @@ export default function CustomersPage() {
                 label="Fecha de nacimiento (opcional)"
               />
               <p className="text-xs text-gray-500 mt-2">
-                Permite recibir notificaciones cuando se acerque el cumpleaños del cliente
+                Es opcional y se usa para enviar promociones y descuentos al cliente
               </p>
             </div>
 
