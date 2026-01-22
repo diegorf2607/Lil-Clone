@@ -222,6 +222,7 @@ export function useCRMStore() {
           // Trigger reload to refresh all data from Supabase
           // This ensures all data is in sync
           setReloadTrigger((prev) => prev + 1)
+        }
       } catch (error) {
         console.error("Error upserting customer:", error)
         throw error
@@ -303,6 +304,7 @@ export function useCRMStore() {
 
           // Trigger reload to refresh all data from Supabase
           setReloadTrigger((prev) => prev + 1)
+        }
       } catch (error) {
         console.error("Error deleting customer:", error)
         throw error
@@ -386,6 +388,7 @@ export function useCRMStore() {
               })),
             }))
           }
+        }
       } catch (error) {
         console.error("Error upserting staff:", error)
         throw error
@@ -436,6 +439,7 @@ export function useCRMStore() {
           // Trigger reload to refresh all data from Supabase
           // This ensures all data is in sync and components are updated
           setReloadTrigger((prev) => prev + 1)
+        }
       } catch (error) {
         console.error("Error adding appointment:", error)
         throw error
@@ -478,6 +482,7 @@ export function useCRMStore() {
 
           // Trigger reload to refresh all data from Supabase
           setReloadTrigger((prev) => prev + 1)
+        }
       } catch (error) {
         console.error("Error deleting appointment:", error)
         throw error
