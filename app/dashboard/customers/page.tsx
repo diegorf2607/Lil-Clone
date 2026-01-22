@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { useCRMStore } from "@/lib/hooks/use-crm-store"
+import { useServices } from "@/lib/hooks/use-services"
 import { CustomersList } from "@/components/customers-list"
 import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
@@ -27,6 +28,7 @@ export default function CustomersPage() {
   const { user, isLoading } = useAuth()
   const router = useRouter()
   const crmStore = useCRMStore()
+  const { services: supabaseServices, isLoaded: servicesLoaded } = useServices()
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [editingCustomer, setEditingCustomer] = useState<{ id: string; fullName: string; email?: string; phone: string; birthdate?: string } | null>(null)
   const [services, setServices] = useState<Service[]>([])
@@ -50,20 +52,23 @@ export default function CustomersPage() {
     }
   }, [user, isLoading, router])
 
-  // Load services from localStorage
+  const toNumericServiceId = (id: string | number | null | undefined) => {
+    const raw = typeof id === "string" ? id : id != null ? String(id) : ""
+    const numeric = parseInt(raw.replace(/-/g, "").substring(0, 15), 16)
+    return Number.isNaN(numeric) ? Date.now() + Math.random() * 1000 : numeric
+  }
+
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const savedServices = localStorage.getItem("lilaServices")
-      if (savedServices) {
-        try {
-          const parsed = JSON.parse(savedServices)
-          setServices(parsed.map((s: any) => ({ id: s.id, name: s.name, duration: s.duration || 30, price: s.price || 0 })))
-        } catch (e) {
-          console.error("Error loading services:", e)
-        }
-      }
-    }
-  }, [])
+    if (!servicesLoaded) return
+    setServices(
+      supabaseServices.map((s) => ({
+        id: toNumericServiceId(s.id),
+        name: s.name,
+        duration: s.duration || 30,
+        price: s.price || 0,
+      }))
+    )
+  }, [servicesLoaded, supabaseServices])
 
   const handleDeleteCustomer = async (customerId: string) => {
     try {

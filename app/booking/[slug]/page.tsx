@@ -111,8 +111,6 @@ export default function BookingPage() {
 
     console.log("[v0] Booking confirmed:", bookingData)
 
-    localStorage.setItem("lastBooking", JSON.stringify(bookingData))
-
     toast({
       title: "Reserva confirmada",
       description: selectedService.esPack

@@ -32,26 +32,6 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-/** Usuarios demo cuando Supabase no está configurado */
-const MOCK_USERS: Record<string, { password: string; user: User }> = {
-  "dueno@lila.com": {
-    password: "demo123",
-    user: { id: "1", email: "dueno@lila.com", name: "María González", role: "dueno", locations: ["loc1", "loc2", "loc3"] },
-  },
-  "admin@lila.com": {
-    password: "demo123",
-    user: { id: "2", email: "admin@lila.com", name: "Carlos Ramírez", role: "administrador", locationId: "loc1" },
-  },
-  "recepcion@lila.com": {
-    password: "demo123",
-    user: { id: "3", email: "recepcion@lila.com", name: "Ana Martínez", role: "recepcionista", locationId: "loc1" },
-  },
-  "staff@lila.com": {
-    password: "demo123",
-    user: { id: "4", email: "staff@lila.com", name: "Luis Torres", role: "staff", locationId: "loc1" },
-  },
-}
-
 function isSupabaseConfigured(): boolean {
   if (typeof window === "undefined") return false
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -75,16 +55,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const useSupabase = isSupabaseConfigured()
 
         if (!useSupabase) {
-          // Modo demo: cargar usuario desde localStorage
           setIsSupabaseAuth(false)
-          const stored = typeof window !== "undefined" ? localStorage.getItem("lila_user") : null
-          if (stored) {
-            try {
-              setUser(JSON.parse(stored))
-            } catch {
-              localStorage.removeItem("lila_user")
-            }
-          }
+          setUser(null)
           setIsLoading(false)
           return
         }
@@ -161,21 +133,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
       if (!isSupabaseConfigured()) {
-        // Modo demo: usuarios mock
-        const mock = MOCK_USERS[email.toLowerCase().trim()]
-        if (!mock || mock.password !== password) {
-          return { success: false, error: "Credenciales incorrectas. Usa dueno@lila.com, admin@lila.com, recepcion@lila.com o staff@lila.com con contraseña demo123." }
-        }
-        setUser(mock.user)
-        if (typeof window !== "undefined") localStorage.setItem("lila_user", JSON.stringify(mock.user))
-        switch (mock.user.role) {
-          case "dueno": router.push("/dashboard/dueno"); break
-          case "administrador": router.push("/dashboard/admin"); break
-          case "recepcionista": router.push("/dashboard/recepcion"); break
-          case "staff": router.push("/dashboard/staff"); break
-          default: router.push("/dashboard")
-        }
-        return { success: true }
+        return { success: false, error: "Supabase no configurado. Configura las variables en Vercel." }
       }
 
       const { data, error } = await supabase.auth.signInWithPassword({ email, password })
@@ -236,7 +194,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (isSupabaseConfigured()) await supabase.auth.signOut()
       setUser(null)
       setSupabaseUser(null)
-      if (typeof window !== "undefined") localStorage.removeItem("lila_user")
       router.push("/login")
     } catch (error) {
       console.error("Logout error:", error)

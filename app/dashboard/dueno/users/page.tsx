@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth, type UserRole } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
@@ -25,6 +25,7 @@ import {
   MapPin,
 } from "lucide-react"
 import Link from "next/link"
+import { createClient } from "@/lib/supabase/client"
 
 interface UserData {
   id: string
@@ -65,6 +66,7 @@ export default function UsersManagement() {
     name: "",
     email: "",
     phone: "",
+    password: "",
     role: "staff" as UserRole,
     locationId: "",
     isActive: true,
@@ -76,67 +78,56 @@ export default function UsersManagement() {
     }
   }, [user, isLoading, router])
 
-  useEffect(() => {
-    // Load locations
-    const storedLocations = localStorage.getItem("lila_locations")
-    if (storedLocations) {
-      setLocations(JSON.parse(storedLocations))
-    }
-
-    // Load users from localStorage
-    const storedUsers = localStorage.getItem("lila_users")
-    if (storedUsers) {
-      setUsers(JSON.parse(storedUsers))
-    } else {
-      // Initialize with demo users
-      const demoUsers: UserData[] = [
-        {
-          id: "1",
-          name: "María González",
-          email: "dueno@lila.com",
-          phone: "+1 234 567 8901",
-          role: "dueno",
-          isActive: true,
-          createdAt: new Date().toISOString(),
-        },
-        {
-          id: "2",
-          name: "Carlos Ramírez",
-          email: "admin@lila.com",
-          phone: "+1 234 567 8902",
-          role: "administrador",
-          locationId: "loc1",
-          locationName: "Sucursal Centro",
-          isActive: true,
-          createdAt: new Date().toISOString(),
-        },
-        {
-          id: "3",
-          name: "Ana Martínez",
-          email: "recepcion@lila.com",
-          phone: "+1 234 567 8903",
-          role: "recepcionista",
-          locationId: "loc1",
-          locationName: "Sucursal Centro",
-          isActive: true,
-          createdAt: new Date().toISOString(),
-        },
-        {
-          id: "4",
-          name: "Luis Torres",
-          email: "staff@lila.com",
-          phone: "+1 234 567 8904",
-          role: "staff",
-          locationId: "loc1",
-          locationName: "Sucursal Centro",
-          isActive: true,
-          createdAt: new Date().toISOString(),
-        },
-      ]
-      setUsers(demoUsers)
-      localStorage.setItem("lila_users", JSON.stringify(demoUsers))
+  const loadLocations = useCallback(async () => {
+    try {
+      const supabase = createClient()
+      const { data, error } = await supabase.from("locations").select("*").order("created_at", { ascending: false })
+      if (error) throw error
+      setLocations(data || [])
+      return data || []
+    } catch (error) {
+      console.error("Error loading locations:", error)
+      setLocations([])
+      return []
     }
   }, [])
+
+  const loadUsers = useCallback(
+    async (locationsData?: any[]) => {
+      try {
+        const res = await fetch("/api/admin/users")
+        const json = await res.json()
+        if (!res.ok) throw new Error(json.error || "Error loading users")
+
+        const locationMap = new Map((locationsData || locations).map((loc: any) => [loc.id, loc.name]))
+        const mappedUsers = (json.users || []).map((u: any) => ({
+          id: u.id,
+          name: u.name || "",
+          email: u.email || "",
+          phone: u.phone || "",
+          role: u.role as UserRole,
+          locationId: u.location_id || "",
+          locationName: u.location_id ? locationMap.get(u.location_id) : undefined,
+          isActive: u.is_active ?? true,
+          createdAt: u.created_at || new Date().toISOString(),
+        }))
+        setUsers(mappedUsers)
+      } catch (error) {
+        console.error("Error loading users:", error)
+        setUsers([])
+      }
+    },
+    [locations]
+  )
+
+  useEffect(() => {
+    if (!user) return
+    const loadAll = async () => {
+      const loadedLocations = await loadLocations()
+      await loadUsers(loadedLocations)
+    }
+    loadAll()
+  }, [user, loadLocations, loadUsers])
 
   const handleOpenModal = (userData?: UserData) => {
     if (userData) {
@@ -145,6 +136,7 @@ export default function UsersManagement() {
         name: userData.name,
         email: userData.email,
         phone: userData.phone,
+        password: "",
         role: userData.role,
         locationId: userData.locationId || "",
         isActive: userData.isActive,
@@ -155,6 +147,7 @@ export default function UsersManagement() {
         name: "",
         email: "",
         phone: "",
+        password: "",
         role: "staff",
         locationId: "",
         isActive: true,
@@ -170,40 +163,80 @@ export default function UsersManagement() {
       name: "",
       email: "",
       phone: "",
+      password: "",
       role: "staff",
       locationId: "",
       isActive: true,
     })
   }
 
-  const handleSaveUser = () => {
-    const locationName = formData.locationId ? locations.find((loc) => loc.id === formData.locationId)?.name : undefined
-
-    if (editingUser) {
-      // Update existing user
-      const updatedUsers = users.map((u) => (u.id === editingUser.id ? { ...u, ...formData, locationName } : u))
-      setUsers(updatedUsers)
-      localStorage.setItem("lila_users", JSON.stringify(updatedUsers))
-    } else {
-      // Create new user
-      const newUser: UserData = {
-        id: `user${Date.now()}`,
-        ...formData,
-        locationName,
-        createdAt: new Date().toISOString(),
-      }
-      const updatedUsers = [...users, newUser]
-      setUsers(updatedUsers)
-      localStorage.setItem("lila_users", JSON.stringify(updatedUsers))
+  const handleSaveUser = async () => {
+    if (!formData.name || !formData.email || !formData.phone) return
+    if (!editingUser && !formData.password) {
+      alert("Ingresa una contraseña para el nuevo usuario.")
+      return
     }
-    handleCloseModal()
+
+    try {
+      if (editingUser) {
+        const res = await fetch("/api/admin/users", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: editingUser.id,
+            updates: {
+              name: formData.name,
+              email: formData.email,
+              phone: formData.phone,
+              password: formData.password || undefined,
+              role: formData.role,
+              locationId: formData.locationId || null,
+              isActive: formData.isActive,
+            },
+          }),
+        })
+        const json = await res.json()
+        if (!res.ok) throw new Error(json.error || "Error updating user")
+      } else {
+        const res = await fetch("/api/admin/users", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: formData.name,
+            email: formData.email,
+            phone: formData.phone,
+            password: formData.password,
+            role: formData.role,
+            locationId: formData.locationId || null,
+            isActive: formData.isActive,
+          }),
+        })
+        const json = await res.json()
+        if (!res.ok) throw new Error(json.error || "Error creating user")
+      }
+
+      await loadUsers()
+      handleCloseModal()
+    } catch (error: any) {
+      console.error("Error saving user:", error)
+      alert(error?.message || "Error al guardar usuario")
+    }
   }
 
-  const handleDeleteUser = (id: string) => {
-    if (confirm("¿Estás seguro de que deseas eliminar este usuario?")) {
-      const updatedUsers = users.filter((u) => u.id !== id)
-      setUsers(updatedUsers)
-      localStorage.setItem("lila_users", JSON.stringify(updatedUsers))
+  const handleDeleteUser = async (id: string) => {
+    if (!confirm("¿Estás seguro de que deseas eliminar este usuario?")) return
+    try {
+      const res = await fetch("/api/admin/users", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || "Error deleting user")
+      await loadUsers()
+    } catch (error: any) {
+      console.error("Error deleting user:", error)
+      alert(error?.message || "Error al eliminar usuario")
     }
   }
 
@@ -487,6 +520,21 @@ export default function UsersManagement() {
                     </div>
                   </div>
 
+                  <div className="space-y-2">
+                    <Label htmlFor="password" className="text-[#2C293F] font-medium">
+                      {editingUser ? "Contraseña (opcional)" : "Contraseña *"}
+                    </Label>
+                    <Input
+                      id="password"
+                      type="password"
+                      value={formData.password}
+                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                      placeholder={editingUser ? "Deja vacío para no cambiar" : "Mínimo 6 caracteres"}
+                      className="h-12 border-[#AFA1FD]/30 focus:border-[#AFA1FD] focus:ring-[#AFA1FD]/20 rounded-xl"
+                      required={!editingUser}
+                    />
+                  </div>
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="role" className="text-[#2C293F] font-medium">
@@ -550,7 +598,12 @@ export default function UsersManagement() {
                   <Button
                     onClick={handleSaveUser}
                     className="flex-1 h-12 bg-[#2C293F] text-white hover:brightness-110 rounded-xl"
-                    disabled={!formData.name || !formData.email || !formData.phone}
+                    disabled={
+                      !formData.name ||
+                      !formData.email ||
+                      !formData.phone ||
+                      (!editingUser && !formData.password)
+                    }
                   >
                     <Save className="w-4 h-4 mr-2" />
                     {editingUser ? "Guardar Cambios" : "Crear Usuario"}

@@ -26,23 +26,12 @@ export function useBusinessInfo() {
           const info = await getBusinessInfo()
           setBusinessInfo(info)
         } else {
-          // Fallback to localStorage
-          const saved = localStorage.getItem("lilaBusinessInfo")
-          if (saved) {
-            setBusinessInfo(JSON.parse(saved))
-          }
+          console.error("Supabase no configurado. No se cargará información del negocio.")
+          setBusinessInfo(null)
         }
       } catch (error) {
         console.error("Error loading business info:", error)
-        // Fallback to localStorage
-        try {
-          const saved = localStorage.getItem("lilaBusinessInfo")
-          if (saved) {
-            setBusinessInfo(JSON.parse(saved))
-          }
-        } catch (e) {
-          console.error("Error loading from localStorage:", e)
-        }
+        setBusinessInfo(null)
       } finally {
         setIsLoaded(true)
       }
@@ -58,18 +47,12 @@ export function useBusinessInfo() {
           const success = await upsertBusinessInfo(info)
           if (success) {
             setBusinessInfo(info)
-            // Also save to localStorage as backup
-            localStorage.setItem("lilaBusinessInfo", JSON.stringify(info))
           }
         } else {
-          localStorage.setItem("lilaBusinessInfo", JSON.stringify(info))
-          setBusinessInfo(info)
+          console.error("Supabase no configurado. No se puede guardar información del negocio.")
         }
       } catch (error) {
         console.error("Error saving business info:", error)
-        // Fallback to localStorage
-        localStorage.setItem("lilaBusinessInfo", JSON.stringify(info))
-        setBusinessInfo(info)
       }
     },
     [useSupabase]

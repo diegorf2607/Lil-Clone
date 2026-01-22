@@ -14,12 +14,13 @@ import { InspirationUploader } from "@/components/inspiration-uploader"
 import { useCRMStore } from "@/lib/hooks/use-crm-store"
 import { useServices } from "@/lib/hooks/use-services"
 import { useBusinessInfo } from "@/lib/hooks/use-business-info"
+import { createClient } from "@/lib/supabase/client"
 import type { InspirationImage } from "@/lib/types/crm"
 
 type BookingStep = "service" | "datetime" | "contact" | "confirm" | "success"
 
 interface Location {
-  id: number
+  id: string
   name: string
   address: string
   phone: string
@@ -114,11 +115,7 @@ export default function PublicBookingPage({ params }: { params: { slug: string }
   const [businessInfo, setBusinessInfo] = useState<BusinessInfo | null>(null)
   const [services, setServices] = useState<Service[]>([])
   const [expandedPackId, setExpandedPackId] = useState<number | null>(null)
-  const [locations, setLocations] = useState<Location[]>([
-    { id: 1, name: "Sede Principal", address: "Av. Principal 123, Centro", phone: "+1 234 567 8900" },
-    { id: 2, name: "Sede Norte", address: "Calle Norte 456, Zona Norte", phone: "+1 234 567 8901" },
-    { id: 3, name: "Sede Sur", address: "Av. Sur 789, Zona Sur", phone: "+1 234 567 8902" },
-  ])
+  const [locations, setLocations] = useState<Location[]>([])
 
   // Use Supabase hooks
   const { services: supabaseServices, isLoaded: servicesLoaded } = useServices()
@@ -131,7 +128,7 @@ export default function PublicBookingPage({ params }: { params: { slug: string }
   }
 
   useEffect(() => {
-    // Load from Supabase first, then fallback to localStorage
+    // Load from Supabase
     if (businessInfoLoaded && supabaseBusinessInfo) {
       setBusinessInfo({
         name: supabaseBusinessInfo.name || "",
@@ -142,18 +139,6 @@ export default function PublicBookingPage({ params }: { params: { slug: string }
       })
       if (supabaseBusinessInfo.brandColor) {
         setBrandColor(supabaseBusinessInfo.brandColor)
-      }
-    } else if (businessInfoLoaded) {
-      // Fallback to localStorage
-      const savedColor = localStorage.getItem("lilaBrandColor")
-      const savedBusinessInfo = localStorage.getItem("lilaBusinessInfo")
-      if (savedColor) setBrandColor(savedColor)
-      if (savedBusinessInfo) {
-        const info = JSON.parse(savedBusinessInfo)
-        setBusinessInfo(info)
-        if (info.locations && info.locations.length > 0) {
-          setLocations(info.locations)
-        }
       }
     }
   }, [businessInfoLoaded, supabaseBusinessInfo])
@@ -171,20 +156,33 @@ export default function PublicBookingPage({ params }: { params: { slug: string }
         subservicios: s.subservicios,
         image: s.image,
       })))
-    } else if (servicesLoaded) {
-      // Fallback to localStorage
-      const savedServices = localStorage.getItem("lilaServices")
-      if (savedServices) {
-        const allServices = JSON.parse(savedServices)
-        setServices(allServices.filter((s: Service) => s.showPublic))
-      }
-    }
-    // Also load locations from localStorage (will be migrated later)
-    const savedLocations = localStorage.getItem("lilaLocations")
-    if (savedLocations) {
-      setLocations(JSON.parse(savedLocations))
     }
   }, [servicesLoaded, supabaseServices])
+
+  useEffect(() => {
+    if (!servicesLoaded) return
+    const loadLocations = async () => {
+      try {
+        const supabase = createClient()
+        const { data, error } = await supabase
+          .from("locations")
+          .select("*")
+          .order("created_at", { ascending: false })
+        if (error) throw error
+        const mapped = (data || []).map((loc: any) => ({
+          id: loc.id,
+          name: loc.name,
+          address: loc.address || "",
+          phone: loc.phone || "",
+        }))
+        setLocations(mapped)
+      } catch (error) {
+        console.error("Error loading locations:", error)
+        setLocations([])
+      }
+    }
+    loadLocations()
+  }, [servicesLoaded])
 
   const handleServiceSelect = (service: Service) => {
     setBookingData({ ...bookingData, service })

@@ -30,7 +30,7 @@ export function useCRMStore() {
   const [reloadTrigger, setReloadTrigger] = useState(0)
   const useSupabase = isSupabaseConfigured()
 
-  // Load data from Supabase or localStorage
+  // Load data from Supabase
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -109,31 +109,12 @@ export function useCRMStore() {
             throw supabaseError // Re-throw to be caught by outer try-catch
           }
         } else {
-          // Fallback to localStorage
-          console.log("ℹ️ Usando localStorage (Supabase no configurado)")
-          if (typeof window !== "undefined") {
-            const stored = localStorage.getItem("beauty_crm_v1")
-            if (stored) {
-              const parsed = JSON.parse(stored)
-              setData(parsed)
-            }
-          }
+          console.error("Supabase no configurado. No se cargarán datos CRM.")
+          setData({ customers: [], staff: [], appointments: [] })
         }
       } catch (error) {
         console.error("❌ Error loading CRM data:", error)
-        console.log("🔄 Cambiando a localStorage como fallback...")
-        // Fallback to localStorage on error
-        if (typeof window !== "undefined") {
-          try {
-            const stored = localStorage.getItem("beauty_crm_v1")
-            if (stored) {
-              const parsed = JSON.parse(stored)
-              setData(parsed)
-            }
-          } catch (e) {
-            console.error("Error loading from localStorage:", e)
-          }
-        }
+        setData({ customers: [], staff: [], appointments: [] })
       } finally {
         setIsLoaded(true)
       }
@@ -151,6 +132,9 @@ export function useCRMStore() {
   const upsertCustomer = useCallback(
     async (customer: Customer) => {
       try {
+        if (!useSupabase) {
+          throw new Error("Supabase no configurado")
+        }
         if (useSupabase) {
           const supabase = createClient()
           const { data: existingCustomer, error: findError } = await supabase
@@ -238,42 +222,9 @@ export function useCRMStore() {
           // Trigger reload to refresh all data from Supabase
           // This ensures all data is in sync
           setReloadTrigger((prev) => prev + 1)
-        } else {
-          // Fallback to localStorage
-          setData((prev) => {
-            const existingIndex = prev.customers.findIndex((c) => c.phone === customer.phone)
-            let updatedCustomers
-            if (existingIndex >= 0) {
-              updatedCustomers = [...prev.customers]
-              updatedCustomers[existingIndex] = { ...updatedCustomers[existingIndex], ...customer }
-            } else {
-              updatedCustomers = [...prev.customers, customer]
-            }
-            const newData = { ...prev, customers: updatedCustomers }
-            if (typeof window !== "undefined") {
-              localStorage.setItem("beauty_crm_v1", JSON.stringify(newData))
-            }
-            return newData
-          })
-        }
       } catch (error) {
         console.error("Error upserting customer:", error)
-        // Fallback to localStorage on error
-        setData((prev) => {
-          const existingIndex = prev.customers.findIndex((c) => c.phone === customer.phone)
-          let updatedCustomers
-          if (existingIndex >= 0) {
-            updatedCustomers = [...prev.customers]
-            updatedCustomers[existingIndex] = { ...updatedCustomers[existingIndex], ...customer }
-          } else {
-            updatedCustomers = [...prev.customers, customer]
-          }
-          const newData = { ...prev, customers: updatedCustomers }
-          if (typeof window !== "undefined") {
-            localStorage.setItem("beauty_crm_v1", JSON.stringify(newData))
-          }
-          return newData
-        })
+        throw error
       }
     },
     [useSupabase, setReloadTrigger]
@@ -297,6 +248,9 @@ export function useCRMStore() {
       }
 
       try {
+        if (!useSupabase) {
+          throw new Error("Supabase no configurado")
+        }
         if (useSupabase) {
           const supabase = createClient()
           const { data: upserted, error } = await supabase
@@ -321,24 +275,6 @@ export function useCRMStore() {
           setReloadTrigger((prev) => prev + 1)
           return upserted?.id || null
         }
-
-        const existing = data.customers.find((c) => c.phone === normalizedCustomer.phone)
-        if (existing) {
-          return existing.id
-        }
-
-        const newId = normalizedCustomer.id || `local_${Date.now()}`
-        setData((prev) => {
-          const newData = {
-            ...prev,
-            customers: [...prev.customers, { ...normalizedCustomer, id: newId }],
-          }
-          if (typeof window !== "undefined") {
-            localStorage.setItem("beauty_crm_v1", JSON.stringify(newData))
-          }
-          return newData
-        })
-        return newId
       } catch (error) {
         console.error("Error getting/creating customer ID:", error)
         return null
@@ -350,6 +286,9 @@ export function useCRMStore() {
   const deleteCustomer = useCallback(
     async (customerId: string) => {
       try {
+        if (!useSupabase) {
+          throw new Error("Supabase no configurado")
+        }
         if (useSupabase) {
           const supabase = createClient()
           const { error } = await supabase
@@ -364,17 +303,6 @@ export function useCRMStore() {
 
           // Trigger reload to refresh all data from Supabase
           setReloadTrigger((prev) => prev + 1)
-        } else {
-          // Fallback to localStorage
-          setData((prev) => {
-            const updatedCustomers = prev.customers.filter((c) => c.id !== customerId)
-            const newData = { ...prev, customers: updatedCustomers }
-            if (typeof window !== "undefined") {
-              localStorage.setItem("beauty_crm_v1", JSON.stringify(newData))
-            }
-            return newData
-          })
-        }
       } catch (error) {
         console.error("Error deleting customer:", error)
         throw error
@@ -387,6 +315,9 @@ export function useCRMStore() {
   const upsertStaff = useCallback(
     async (staff: Staff) => {
       try {
+        if (!useSupabase) {
+          throw new Error("Supabase no configurado")
+        }
         if (useSupabase) {
           const supabase = createClient()
           // Check if staff exists by name (more reliable than ID)
@@ -455,42 +386,9 @@ export function useCRMStore() {
               })),
             }))
           }
-        } else {
-          // Fallback to localStorage
-          setData((prev) => {
-            const existingIndex = prev.staff.findIndex((s) => s.id === staff.id)
-            let updatedStaff
-            if (existingIndex >= 0) {
-              updatedStaff = [...prev.staff]
-              updatedStaff[existingIndex] = staff
-            } else {
-              updatedStaff = [...prev.staff, staff]
-            }
-            const newData = { ...prev, staff: updatedStaff }
-            if (typeof window !== "undefined") {
-              localStorage.setItem("beauty_crm_v1", JSON.stringify(newData))
-            }
-            return newData
-          })
-        }
       } catch (error) {
         console.error("Error upserting staff:", error)
-        // Fallback to localStorage
-        setData((prev) => {
-          const existingIndex = prev.staff.findIndex((s) => s.id === staff.id)
-          let updatedStaff
-          if (existingIndex >= 0) {
-            updatedStaff = [...prev.staff]
-            updatedStaff[existingIndex] = staff
-          } else {
-            updatedStaff = [...prev.staff, staff]
-          }
-          const newData = { ...prev, staff: updatedStaff }
-          if (typeof window !== "undefined") {
-            localStorage.setItem("beauty_crm_v1", JSON.stringify(newData))
-          }
-          return newData
-        })
+        throw error
       }
     },
     [useSupabase, setReloadTrigger]
@@ -507,6 +405,9 @@ export function useCRMStore() {
   const addAppointment = useCallback(
     async (appointment: Appointment) => {
       try {
+        if (!useSupabase) {
+          throw new Error("Supabase no configurado")
+        }
         if (useSupabase) {
           const supabase = createClient()
           // Don't pass id - let Supabase generate UUID automatically
@@ -535,32 +436,9 @@ export function useCRMStore() {
           // Trigger reload to refresh all data from Supabase
           // This ensures all data is in sync and components are updated
           setReloadTrigger((prev) => prev + 1)
-        } else {
-          // Fallback to localStorage
-          setData((prev) => {
-            const newData = {
-              ...prev,
-              appointments: [...prev.appointments, appointment],
-            }
-            if (typeof window !== "undefined") {
-              localStorage.setItem("beauty_crm_v1", JSON.stringify(newData))
-            }
-            return newData
-          })
-        }
       } catch (error) {
         console.error("Error adding appointment:", error)
-        // Fallback to localStorage
-        setData((prev) => {
-          const newData = {
-            ...prev,
-            appointments: [...prev.appointments, appointment],
-          }
-          if (typeof window !== "undefined") {
-            localStorage.setItem("beauty_crm_v1", JSON.stringify(newData))
-          }
-          return newData
-        })
+        throw error
       }
     },
     [useSupabase, setReloadTrigger]
@@ -583,6 +461,9 @@ export function useCRMStore() {
   const deleteAppointment = useCallback(
     async (appointmentId: string) => {
       try {
+        if (!useSupabase) {
+          throw new Error("Supabase no configurado")
+        }
         if (useSupabase) {
           const supabase = createClient()
           const { error } = await supabase
@@ -597,19 +478,6 @@ export function useCRMStore() {
 
           // Trigger reload to refresh all data from Supabase
           setReloadTrigger((prev) => prev + 1)
-        } else {
-          // Fallback to localStorage
-          setData((prev) => {
-            const newData = {
-              ...prev,
-              appointments: prev.appointments.filter((apt) => apt.id !== appointmentId),
-            }
-            if (typeof window !== "undefined") {
-              localStorage.setItem("beauty_crm_v1", JSON.stringify(newData))
-            }
-            return newData
-          })
-        }
       } catch (error) {
         console.error("Error deleting appointment:", error)
         throw error

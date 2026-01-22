@@ -51,40 +51,12 @@ export function useServices() {
             )
             .subscribe()
         } else {
-          // Fallback to localStorage
-          const saved = localStorage.getItem("lilaServices")
-          if (saved) {
-            const parsed = JSON.parse(saved)
-            setServices(parsed.map((s: any) => ({
-              id: s.id?.toString() || `service_${Date.now()}`,
-              name: s.name,
-              description: s.description,
-              image: s.image,
-              duration: s.duration || 30,
-              price: s.price || 0,
-              showPublic: s.showPublic !== undefined ? s.showPublic : true,
-              requiereAdelanto: s.requiereAdelanto || false,
-              montoAdelanto: s.montoAdelanto || 0,
-              metodoPago: s.metodoPago || "no-aplica",
-              esPack: s.esPack || false,
-              subservicios: s.subservicios,
-              availableDays: s.availableDays,
-              customDays: s.customDays || false,
-            })))
-          }
+          console.error("Supabase no configurado. No se cargarán servicios.")
+          setServices([])
         }
       } catch (error) {
         console.error("Error loading services:", error)
-        // Fallback to localStorage
-        try {
-          const saved = localStorage.getItem("lilaServices")
-          if (saved) {
-            const parsed = JSON.parse(saved)
-            setServices(parsed)
-          }
-        } catch (e) {
-          console.error("Error loading from localStorage:", e)
-        }
+        setServices([])
       } finally {
         setIsLoaded(true)
       }
@@ -196,17 +168,11 @@ export function useServices() {
             setServices(servicesToSave)
           }
 
-          // Also save to localStorage as backup
-          localStorage.setItem("lilaServices", JSON.stringify(servicesToSave))
         } else {
-          localStorage.setItem("lilaServices", JSON.stringify(servicesToSave))
-          setServices(servicesToSave)
+          console.error("Supabase no configurado. No se pueden guardar servicios.")
         }
       } catch (error) {
         console.error("Error saving services:", error)
-        // Fallback to localStorage on error
-        localStorage.setItem("lilaServices", JSON.stringify(servicesToSave))
-        setServices(servicesToSave)
       }
     },
     [useSupabase]
@@ -218,26 +184,7 @@ export function useServices() {
         const loadedServices = await getServices()
         setServices(loadedServices)
       } else {
-        const saved = localStorage.getItem("lilaServices")
-        if (saved) {
-          const parsed = JSON.parse(saved)
-          setServices(parsed.map((s: any) => ({
-            id: s.id?.toString() || `service_${Date.now()}`,
-            name: s.name,
-            description: s.description,
-            image: s.image,
-            duration: s.duration || 30,
-            price: s.price || 0,
-            showPublic: s.showPublic !== undefined ? s.showPublic : true,
-            requiereAdelanto: s.requiereAdelanto || false,
-            montoAdelanto: s.montoAdelanto || 0,
-            metodoPago: s.metodoPago || "no-aplica",
-            esPack: s.esPack || false,
-            subservicios: s.subservicios,
-            availableDays: s.availableDays,
-            customDays: s.customDays || false,
-          })))
-        }
+        console.error("Supabase no configurado. No se pueden recargar servicios.")
       }
     } catch (error) {
       console.error("Error reloading services:", error)

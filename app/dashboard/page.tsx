@@ -968,7 +968,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
     }
     setServices(updatedServices)
 
-    // Save to Supabase or localStorage
+    // Save to Supabase
     await saveServicesToSupabase(updatedServices.map((s) => ({
       id: s.id.toString(),
       name: s.name,
@@ -1015,7 +1015,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
     if (confirm("¿Estás seguro de que deseas eliminar este servicio?")) {
       const updatedServices = services.filter((s) => s.id !== id)
       setServices(updatedServices)
-      // Save to Supabase or localStorage
+      // Save to Supabase
       await saveServicesToSupabase(updatedServices.map((s) => ({
         id: s.id.toString(),
         name: s.name,
@@ -1032,8 +1032,6 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
         availableDays: s.availableDays,
         customDays: !!s.availableDays,
       })))
-      // Also save to localStorage as backup
-      localStorage.setItem("lilaServices", JSON.stringify(updatedServices))
     }
   }
 
@@ -1288,12 +1286,6 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
         brandColor: supabaseBusinessInfo.brandColor || "#AFA1FD",
         publicSlug: supabaseBusinessInfo.publicLink || "",
       })
-    } else if (businessInfoLoaded && !supabaseBusinessInfo) {
-      // Fallback to localStorage if Supabase not configured
-    const savedBusinessInfo = localStorage.getItem("lilaBusinessInfo")
-    if (savedBusinessInfo) {
-      setBusinessInfo(JSON.parse(savedBusinessInfo))
-    }
     }
   }, [businessInfoLoaded, supabaseBusinessInfo])
 
@@ -1323,12 +1315,6 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
           sunday: s.availableDays.sunday ?? true,
         } : undefined,
       })))
-    } else if (servicesLoaded && supabaseServices.length === 0) {
-      // Fallback to localStorage if Supabase not configured
-      const savedServices = localStorage.getItem("lilaServices")
-      if (savedServices) {
-        setServices(JSON.parse(savedServices))
-      }
     }
   }, [servicesLoaded, supabaseServices])
 
@@ -1697,7 +1683,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
       return
     }
 
-    // Save to Supabase or localStorage
+    // Save to Supabase
     await saveBusinessInfoToSupabase({
       name: businessInfo.name,
       email: businessInfo.email,
@@ -1760,7 +1746,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
   }
 
   const handleApplyBrandColor = async () => {
-    // Save brand color to Supabase or localStorage
+    // Save brand color to Supabase
     await saveBusinessInfoToSupabase({
       name: businessInfo.name,
       email: businessInfo.email,
@@ -1787,10 +1773,6 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
       availableDays: s.availableDays,
       customDays: !!s.availableDays,
     })))
-    // Also save to localStorage as backup
-    localStorage.setItem("lilaBrandColor", businessInfo.brandColor)
-    localStorage.setItem("lilaBusinessInfo", JSON.stringify(businessInfo))
-    localStorage.setItem("lilaServices", JSON.stringify(services))
     setSaveMessage("Color de marca aplicado exitosamente")
     setTimeout(() => setSaveMessage(null), 3000)
   }

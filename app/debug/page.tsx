@@ -104,12 +104,8 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=tu-anon-key-aqui`}
       <div className="mt-6 bg-blue-50 border border-blue-200 rounded-xl p-6">
         <h2 className="font-semibold text-blue-900 mb-2">💡 Información adicional</h2>
         <p className="text-sm text-blue-800">
-          El sistema usa un modo híbrido automático:
+          El sistema requiere Supabase para cargar y guardar datos.
         </p>
-        <ul className="list-disc list-inside text-sm text-blue-700 space-y-1 mt-2">
-          <li><strong>Si Supabase está configurado:</strong> Los datos se cargan y guardan en Supabase</li>
-          <li><strong>Si Supabase NO está configurado:</strong> El sistema usa localStorage automáticamente</li>
-        </ul>
         <p className="text-xs text-blue-600 mt-3">
           Revisa la consola del navegador (F12) para ver logs detallados de la conexión.
         </p>

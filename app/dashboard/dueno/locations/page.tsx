@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { motion, AnimatePresence } from "framer-motion"
 import { MapPin, Plus, Edit, Trash2, X, Building2, Phone, Mail, Users, ArrowLeft, Save, Search } from "lucide-react"
 import Link from "next/link"
+import { createClient } from "@/lib/supabase/client"
 
 interface Location {
   id: string
@@ -43,49 +44,33 @@ export default function LocationsManagement() {
     }
   }, [user, isLoading, router])
 
-  useEffect(() => {
-    // Load locations from localStorage
-    const storedLocations = localStorage.getItem("lila_locations")
-    if (storedLocations) {
-      setLocations(JSON.parse(storedLocations))
-    } else {
-      // Initialize with demo locations
-      const demoLocations: Location[] = [
-        {
-          id: "loc1",
-          name: "Sucursal Centro",
-          address: "Av. Principal 123, Centro",
-          phone: "+1 234 567 8901",
-          email: "centro@lila.com",
-          staffCount: 8,
-          isActive: true,
-          createdAt: new Date().toISOString(),
-        },
-        {
-          id: "loc2",
-          name: "Sucursal Norte",
-          address: "Calle Norte 456, Zona Norte",
-          phone: "+1 234 567 8902",
-          email: "norte@lila.com",
-          staffCount: 6,
-          isActive: true,
-          createdAt: new Date().toISOString(),
-        },
-        {
-          id: "loc3",
-          name: "Sucursal Sur",
-          address: "Av. Sur 789, Zona Sur",
-          phone: "+1 234 567 8903",
-          email: "sur@lila.com",
-          staffCount: 5,
-          isActive: true,
-          createdAt: new Date().toISOString(),
-        },
-      ]
-      setLocations(demoLocations)
-      localStorage.setItem("lila_locations", JSON.stringify(demoLocations))
+  const loadLocations = useCallback(async () => {
+    try {
+      const supabase = createClient()
+      const { data, error } = await supabase.from("locations").select("*").order("created_at", { ascending: false })
+      if (error) throw error
+      const mapped = (data || []).map((loc: any) => ({
+        id: loc.id,
+        name: loc.name,
+        address: loc.address || "",
+        phone: loc.phone || "",
+        email: loc.email || "",
+        staffCount: loc.staff_count || 0,
+        isActive: loc.is_active ?? true,
+        createdAt: loc.created_at || new Date().toISOString(),
+      }))
+      setLocations(mapped)
+    } catch (error) {
+      console.error("Error loading locations:", error)
+      setLocations([])
     }
   }, [])
+
+  useEffect(() => {
+    if (!isLoading && user?.role === "dueno") {
+      loadLocations()
+    }
+  }, [isLoading, user, loadLocations])
 
   const handleOpenModal = (location?: Location) => {
     if (location) {
@@ -125,31 +110,52 @@ export default function LocationsManagement() {
     })
   }
 
-  const handleSaveLocation = () => {
-    if (editingLocation) {
-      // Update existing location
-      const updatedLocations = locations.map((loc) => (loc.id === editingLocation.id ? { ...loc, ...formData } : loc))
-      setLocations(updatedLocations)
-      localStorage.setItem("lila_locations", JSON.stringify(updatedLocations))
-    } else {
-      // Create new location
-      const newLocation: Location = {
-        id: `loc${Date.now()}`,
-        ...formData,
-        createdAt: new Date().toISOString(),
+  const handleSaveLocation = async () => {
+    try {
+      const supabase = createClient()
+      if (editingLocation) {
+        const { error } = await supabase
+          .from("locations")
+          .update({
+            name: formData.name,
+            address: formData.address,
+            phone: formData.phone,
+            email: formData.email,
+            staff_count: formData.staffCount,
+            is_active: formData.isActive,
+          })
+          .eq("id", editingLocation.id)
+        if (error) throw error
+      } else {
+        const { error } = await supabase.from("locations").insert({
+          name: formData.name,
+          address: formData.address,
+          phone: formData.phone,
+          email: formData.email,
+          staff_count: formData.staffCount,
+          is_active: formData.isActive,
+        })
+        if (error) throw error
       }
-      const updatedLocations = [...locations, newLocation]
-      setLocations(updatedLocations)
-      localStorage.setItem("lila_locations", JSON.stringify(updatedLocations))
+      await loadLocations()
+      handleCloseModal()
+    } catch (error) {
+      console.error("Error saving location:", error)
+      alert("Error al guardar la ubicación")
     }
-    handleCloseModal()
   }
 
-  const handleDeleteLocation = (id: string) => {
+  const handleDeleteLocation = async (id: string) => {
     if (confirm("¿Estás seguro de que deseas eliminar esta ubicación?")) {
-      const updatedLocations = locations.filter((loc) => loc.id !== id)
-      setLocations(updatedLocations)
-      localStorage.setItem("lila_locations", JSON.stringify(updatedLocations))
+      try {
+        const supabase = createClient()
+        const { error } = await supabase.from("locations").delete().eq("id", id)
+        if (error) throw error
+        await loadLocations()
+      } catch (error) {
+        console.error("Error deleting location:", error)
+        alert("Error al eliminar la ubicación")
+      }
     }
   }
 
