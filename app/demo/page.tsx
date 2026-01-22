@@ -101,12 +101,18 @@ export default function DemoPage() {
   const [cardExpiry, setCardExpiry] = useState("")
   const [cardCvc, setCardCvc] = useState("")
 
+  const toNumericServiceId = (id: string | number | null | undefined) => {
+    const raw = typeof id === "string" ? id : id != null ? String(id) : ""
+    const numeric = parseInt(raw.replace(/-/g, "").substring(0, 15), 16)
+    return Number.isNaN(numeric) ? Date.now() + Math.random() * 1000 : numeric
+  }
+
   // Map Supabase services to demo format, only show public services
   const services: Service[] = servicesLoaded
     ? supabaseServices
         .filter((s) => s.showPublic)
         .map((s) => ({
-          id: parseInt(s.id.replace(/-/g, "").substring(0, 15), 16) || Date.now() + Math.random() * 1000,
+          id: toNumericServiceId(s.id),
           name: s.name,
           description: s.description || "",
           price: s.price,

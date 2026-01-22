@@ -124,6 +124,12 @@ export default function PublicBookingPage({ params }: { params: { slug: string }
   const { services: supabaseServices, isLoaded: servicesLoaded } = useServices()
   const { businessInfo: supabaseBusinessInfo, isLoaded: businessInfoLoaded } = useBusinessInfo()
 
+  const toNumericServiceId = (id: string | number | null | undefined) => {
+    const raw = typeof id === "string" ? id : id != null ? String(id) : ""
+    const numeric = parseInt(raw.replace(/-/g, "").substring(0, 15), 16)
+    return Number.isNaN(numeric) ? Date.now() + Math.random() * 1000 : numeric
+  }
+
   useEffect(() => {
     // Load from Supabase first, then fallback to localStorage
     if (businessInfoLoaded && supabaseBusinessInfo) {
@@ -155,7 +161,7 @@ export default function PublicBookingPage({ params }: { params: { slug: string }
   useEffect(() => {
     if (servicesLoaded && supabaseServices.length > 0) {
       setServices(supabaseServices.filter((s) => s.showPublic).map((s) => ({
-        id: parseInt(s.id.replace(/-/g, "").substring(0, 15), 16) || Date.now() + Math.random() * 1000,
+        id: toNumericServiceId(s.id),
         name: s.name,
         description: s.description,
         price: s.price,

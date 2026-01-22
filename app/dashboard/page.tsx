@@ -1270,6 +1270,12 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
   const { businessInfo: supabaseBusinessInfo, isLoaded: businessInfoLoaded, saveBusinessInfo: saveBusinessInfoToSupabase } = useBusinessInfo()
   const { services: supabaseServices, isLoaded: servicesLoaded, saveServices: saveServicesToSupabase } = useServices()
 
+  const toNumericServiceId = (id: string | number | null | undefined) => {
+    const raw = typeof id === "string" ? id : id != null ? String(id) : ""
+    const numeric = parseInt(raw.replace(/-/g, "").substring(0, 15), 16)
+    return Number.isNaN(numeric) ? Date.now() + Math.random() * 1000 : numeric
+  }
+
   // Sync business info from Supabase
   useEffect(() => {
     if (businessInfoLoaded && supabaseBusinessInfo) {
@@ -1295,7 +1301,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
   useEffect(() => {
     if (servicesLoaded && supabaseServices.length > 0) {
       setServices(supabaseServices.map((s) => ({
-        id: parseInt(s.id.replace(/-/g, "").substring(0, 15), 16) || Date.now() + Math.random() * 1000,
+        id: toNumericServiceId(s.id),
         name: s.name,
         description: s.description || "",
         image: s.image,
