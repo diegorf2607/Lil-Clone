@@ -393,7 +393,7 @@ export default function DemoPage() {
 
               <div className="flex gap-4">
                 <Button
-                  onClick={handleBack}
+                  onClick={() => (window.location.href = "/")}
                   variant="outline"
                   className="flex-1 border-2 border-gray-300 text-[#2C293F] bg-white hover:bg-gray-50 text-lg py-6"
                 >
@@ -675,12 +675,21 @@ export default function DemoPage() {
               </motion.div>
               <h2 className="text-5xl font-bold text-[#2C293F] mb-4">¡Reserva confirmada!</h2>
               <p className="text-xl text-[#AFA1FD] mb-8">Nos vemos pronto</p>
-              <Button
-                onClick={() => (window.location.href = "/")}
-                className="bg-gradient-to-r from-[#AFA1FD] to-[#9890E8] text-white text-lg py-6 px-12"
-              >
-                Volver al inicio
-              </Button>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <Button
+                  onClick={handleBack}
+                  variant="outline"
+                  className="border-2 border-gray-300 text-[#2C293F] bg-white hover:bg-gray-50 text-lg py-6 px-12"
+                >
+                  Volver atrás
+                </Button>
+                <Button
+                  onClick={() => (window.location.href = "/")}
+                  className="bg-gradient-to-r from-[#AFA1FD] to-[#9890E8] text-white text-lg py-6 px-12"
+                >
+                  Volver al inicio
+                </Button>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>

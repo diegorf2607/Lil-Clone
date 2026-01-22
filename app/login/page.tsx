@@ -141,10 +141,6 @@ export default function LoginPage() {
                   <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
                   <div>
                     <p className="text-sm text-red-800 font-medium">{error}</p>
-                    <p className="text-xs text-red-600 mt-1">
-                      Demo: usa dueno@lila.com, admin@lila.com, recepcion@lila.com o staff@lila.com con contraseña
-                      "demo123"
-                    </p>
                   </div>
                 </motion.div>
               )}
@@ -208,33 +204,6 @@ export default function LoginPage() {
           </motion.div>
         </motion.div>
 
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 1 }}
-          className="mt-6 text-center max-w-md"
-        >
-          <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-4 border border-[#AFA1FD]/20">
-            <p className="text-sm text-[#2C293F]/70 font-medium mb-2">Credenciales de demo:</p>
-            <div className="text-xs text-[#2C293F]/60 space-y-1">
-              <p>
-                <strong>Dueño:</strong> dueno@lila.com
-              </p>
-              <p>
-                <strong>Admin:</strong> admin@lila.com
-              </p>
-              <p>
-                <strong>Recepción:</strong> recepcion@lila.com
-              </p>
-              <p>
-                <strong>Staff:</strong> staff@lila.com
-              </p>
-              <p className="mt-2">
-                <strong>Contraseña:</strong> demo123
-              </p>
-            </div>
-          </div>
-        </motion.div>
       </div>
     </div>
   )
