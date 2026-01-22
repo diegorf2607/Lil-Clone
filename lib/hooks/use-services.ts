@@ -110,6 +110,7 @@ export function useServices() {
                   metodoPago: service.metodoPago,
                   esPack: service.esPack,
                   subservicios: service.subservicios,
+                  locationIds: service.locationIds,
                   availableDays: service.availableDays,
                   customDays: service.customDays,
                 })
@@ -127,6 +128,7 @@ export function useServices() {
                   metodoPago: service.metodoPago,
                   esPack: service.esPack,
                   subservicios: service.subservicios,
+                  locationIds: service.locationIds,
                   availableDays: service.availableDays,
                   customDays: service.customDays,
                 })
@@ -160,6 +162,7 @@ export function useServices() {
               metodoPago: s.metodoPago,
               esPack: s.esPack,
               subservicios: s.subservicios,
+              locationIds: s.locationIds,
               availableDays: s.availableDays,
               customDays: s.customDays,
             }))

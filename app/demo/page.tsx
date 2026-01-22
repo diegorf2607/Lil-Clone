@@ -123,6 +123,7 @@ export default function DemoPage() {
           metodoPago: s.metodoPago || "no-aplica",
           availableDays: s.availableDays,
           customDays: s.customDays,
+          locationIds: s.locationIds,
         }))
     : []
 
@@ -198,6 +199,11 @@ export default function DemoPage() {
     if (bookedTimes.has(slot24)) return false
     return true
   }
+
+  const visibleLocations =
+    selectedServiceData?.locationIds && selectedServiceData.locationIds.length > 0
+      ? locations.filter((loc) => selectedServiceData.locationIds?.includes(loc.id))
+      : locations
 
   useEffect(() => {
     if (!selectedDate) {
@@ -528,7 +534,7 @@ export default function DemoPage() {
               </div>
 
               <div className="grid gap-4">
-                {locations.map((location) => (
+                {visibleLocations.map((location) => (
                   <motion.button
                     key={location.id}
                     onClick={() => handleLocationSelect(location.id)}

@@ -15,6 +15,7 @@ export interface Service {
   metodoPago: "online" | "transferencia" | "no-aplica"
   esPack: boolean
   subservicios?: any[]
+  locationIds?: string[]
   availableDays?: { [key: string]: boolean }
   customDays: boolean
 }
@@ -41,6 +42,7 @@ export async function getServices(): Promise<Service[]> {
     metodoPago: s.metodo_pago,
     esPack: s.es_pack,
     subservicios: (s.subservicios as any) || undefined,
+    locationIds: (s.location_ids as any) || undefined,
     availableDays: (s.available_days as any) || undefined,
     customDays: s.custom_days || false,
   }))
@@ -62,6 +64,7 @@ export async function createService(service: Omit<Service, "id">): Promise<Servi
       metodo_pago: service.metodoPago,
       es_pack: service.esPack,
       subservicios: service.subservicios || null,
+      location_ids: service.locationIds || null,
       available_days: service.availableDays || null,
       custom_days: service.customDays || false,
     })
@@ -86,6 +89,7 @@ export async function createService(service: Omit<Service, "id">): Promise<Servi
     metodoPago: data.metodo_pago,
     esPack: data.es_pack,
     subservicios: (data.subservicios as any) || undefined,
+    locationIds: (data.location_ids as any) || undefined,
     availableDays: (data.available_days as any) || undefined,
     customDays: data.custom_days || false,
   }
@@ -106,6 +110,7 @@ export async function updateService(id: string, service: Partial<Service>): Prom
   if (service.metodoPago !== undefined) updateData.metodo_pago = service.metodoPago
   if (service.esPack !== undefined) updateData.es_pack = service.esPack
   if (service.subservicios !== undefined) updateData.subservicios = service.subservicios || null
+  if (service.locationIds !== undefined) updateData.location_ids = service.locationIds || null
   if (service.availableDays !== undefined) updateData.available_days = service.availableDays || null
   if (service.customDays !== undefined) updateData.custom_days = service.customDays
 

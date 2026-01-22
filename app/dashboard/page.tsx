@@ -50,6 +50,7 @@ interface Service {
   metodoPago: "online" | "transferencia" | "no-aplica"
   esPack: boolean
   subservicios?: SubService[]
+  locationIds?: string[]
   availableDays?: {
     monday: boolean
     tuesday: boolean
@@ -73,6 +74,7 @@ interface ServiceFormData {
   metodoPago: "online" | "transferencia" | "no-aplica"
   esPack: boolean
   customDays: boolean
+  locationIds: string[]
   availableDays: {
     monday: boolean
     tuesday: boolean
@@ -242,6 +244,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
   const [reservations, setReservations] = useState<Reservation[]>([])
 
   const [services, setServices] = useState<Service[]>([])
+  const [availableLocations, setAvailableLocations] = useState<Array<{ id: string; name: string }>>([])
 
   const [isServiceModalOpen, setIsServiceModalOpen] = useState(false)
   const [editingServiceId, setEditingServiceId] = useState<number | null>(null)
@@ -257,6 +260,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
     metodoPago: "no-aplica",
     esPack: false,
     customDays: false,
+    locationIds: [],
     availableDays: {
       monday: true,
       tuesday: true,
@@ -802,6 +806,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
       metodoPago: "no-aplica",
       esPack: false,
       customDays: false,
+      locationIds: [],
       availableDays: {
         monday: true,
         tuesday: true,
@@ -838,6 +843,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
       metodoPago: service.metodoPago,
       esPack: service.esPack,
       customDays: hasCustomDays || false,
+      locationIds: service.locationIds || [],
       availableDays: service.availableDays || {
         monday: true,
         tuesday: true,
@@ -895,6 +901,11 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
       return
     }
 
+    if (serviceFormData.locationIds.length === 0) {
+      alert("Selecciona al menos una sede para este servicio")
+      return
+    }
+
     if (serviceFormData.esPack && subServices.length === 0) {
       alert("Un servicio pack debe tener al menos un subservicio")
       return
@@ -930,6 +941,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
       metodoPago: serviceFormData.metodoPago,
       esPack: serviceFormData.esPack,
       subservicios: serviceFormData.esPack ? subServices : undefined,
+      locationIds: serviceFormData.locationIds,
       availableDays: serviceFormData.customDays ? serviceFormData.availableDays : undefined,
     }
 
@@ -955,6 +967,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
       metodoPago: s.metodoPago,
       esPack: s.esPack,
       subservicios: s.subservicios,
+      locationIds: s.locationIds,
       availableDays: s.availableDays,
       customDays: !!s.availableDays,
     })))
@@ -972,6 +985,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
       metodoPago: "no-aplica",
       esPack: false,
       customDays: false,
+      locationIds: [],
       availableDays: {
         monday: true,
         tuesday: true,
@@ -1282,6 +1296,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
         metodoPago: s.metodoPago,
         esPack: s.esPack,
         subservicios: s.subservicios,
+        locationIds: s.locationIds,
         availableDays: s.availableDays ? {
           monday: s.availableDays.monday ?? true,
           tuesday: s.availableDays.tuesday ?? true,
@@ -1294,6 +1309,25 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
       })))
     }
   }, [servicesLoaded, supabaseServices])
+
+  useEffect(() => {
+    if (!servicesLoaded) return
+    const loadLocations = async () => {
+      try {
+        const supabase = createClient()
+        const { data, error } = await supabase
+          .from("locations")
+          .select("id, name")
+          .order("created_at", { ascending: false })
+        if (error) throw error
+        setAvailableLocations((data || []).map((loc) => ({ id: loc.id, name: loc.name })))
+      } catch (error) {
+        console.error("Error loading locations:", error)
+        setAvailableLocations([])
+      }
+    }
+    loadLocations()
+  }, [servicesLoaded])
 
   // Sync reservations from CRM store appointments
   useEffect(() => {
@@ -1771,6 +1805,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
       metodoPago: s.metodoPago,
       esPack: s.esPack,
       subservicios: s.subservicios,
+      locationIds: s.locationIds,
       availableDays: s.availableDays,
       customDays: !!s.availableDays,
     })))
@@ -3822,7 +3857,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
                   <>
                 <div className="mb-8">
                   <h1 className="text-5xl font-bold text-[#2C293F] mb-3">
-                    Configutación
+                    Configuración
                   </h1>
                   <p className="text-[#AFA1FD] text-lg font-medium">Ajusta las preferencias de tu negocio</p>
                 </div>
@@ -5014,6 +5049,45 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
                     </p>
                   </div>
                 )}
+
+                <div className="border-t-2 border-gray-200 pt-6">
+                  <h3 className="text-lg font-bold text-[#2C293F] mb-4">Sedes disponibles</h3>
+                  <p className="text-sm text-gray-500 mb-4">
+                    Selecciona las sedes donde se ofrece este servicio
+                  </p>
+                  {availableLocations.length === 0 ? (
+                    <p className="text-sm text-red-600">
+                      No hay sedes creadas. Crea una sede en Configuración → Sedes.
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {availableLocations.map((loc) => {
+                        const selected = serviceFormData.locationIds.includes(loc.id)
+                        return (
+                          <button
+                            key={loc.id}
+                            type="button"
+                            onClick={() => {
+                              setServiceFormData((prev) => ({
+                                ...prev,
+                                locationIds: selected
+                                  ? prev.locationIds.filter((id) => id !== loc.id)
+                                  : [...prev.locationIds, loc.id],
+                              }))
+                            }}
+                            className={`px-4 py-3 rounded-xl border-2 text-left transition ${
+                              selected
+                                ? "border-[#AFA1FD] bg-[#AFA1FD]/10 text-[#2C293F]"
+                                : "border-gray-200 hover:border-[#AFA1FD]/50"
+                            }`}
+                          >
+                            {loc.name}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
 
                 <div className="border-t-2 border-gray-200 pt-6">
                   <h3 className="text-lg font-bold text-[#2C293F] mb-4">Configuración de Adelanto</h3>

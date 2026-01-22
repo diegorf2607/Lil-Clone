@@ -46,6 +46,7 @@ interface Service {
   esPack: boolean
   subservicios?: SubService[]
   image?: string
+  locationIds?: string[]
   availableDays?: { [key: string]: boolean }
   customDays?: boolean
 }
@@ -174,6 +175,7 @@ export default function PublicBookingPage({ params }: { params: { slug: string }
         esPack: s.esPack,
         subservicios: s.subservicios,
         image: s.image,
+        locationIds: s.locationIds,
         availableDays: s.availableDays,
         customDays: s.customDays,
       })))
@@ -220,6 +222,11 @@ export default function PublicBookingPage({ params }: { params: { slug: string }
     if (bookedTimes.has(slot24)) return false
     return true
   }
+
+  const visibleLocations =
+    bookingData.service?.locationIds && bookingData.service.locationIds.length > 0
+      ? locations.filter((loc) => bookingData.service?.locationIds?.includes(loc.id))
+      : locations
 
   useEffect(() => {
     if (!bookingData.date) {
@@ -712,7 +719,7 @@ export default function PublicBookingPage({ params }: { params: { slug: string }
                   Local
                 </Label>
                 <div className="grid grid-cols-1 gap-4">
-                  {locations.map((location, index) => (
+                {visibleLocations.map((location, index) => (
                     <motion.div
                       key={location.id}
                       initial={{ opacity: 0, y: 20 }}

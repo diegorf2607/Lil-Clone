@@ -70,6 +70,7 @@ CREATE TABLE IF NOT EXISTS services (
   metodo_pago TEXT CHECK (metodo_pago IN ('online', 'transferencia', 'no-aplica')) DEFAULT 'no-aplica',
   es_pack BOOLEAN DEFAULT FALSE,
   subservicios JSONB DEFAULT '[]'::jsonb, -- Array of subservices
+  location_ids JSONB DEFAULT '[]'::jsonb, -- Array of location UUIDs
   available_days JSONB DEFAULT '{"monday": true, "tuesday": true, "wednesday": true, "thursday": true, "friday": true, "saturday": true, "sunday": true}'::jsonb,
   custom_days BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
