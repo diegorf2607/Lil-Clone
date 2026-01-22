@@ -4165,10 +4165,20 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
               </DialogHeader>
 
               <div className="space-y-4 py-4">
-                {Object.entries(businessHours).map(([day, hours]) => (
+                {Object.entries(businessHours).map(([day, hours]) => {
+                  const dayNames: Record<string, string> = {
+                    monday: "Lunes",
+                    tuesday: "Martes",
+                    wednesday: "Miércoles",
+                    thursday: "Jueves",
+                    friday: "Viernes",
+                    saturday: "Sábado",
+                    sunday: "Domingo",
+                  }
+                  return (
                   <div key={day} className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl">
                     <div className="flex-1">
-                      <p className="font-semibold text-[#2C293F] capitalize">{day}</p>
+                      <p className="font-semibold text-[#2C293F]">{dayNames[day] || day}</p>
                     </div>
                     <div className="flex items-center gap-3">
                       <Input
@@ -4208,7 +4218,8 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
                       />
                     </div>
                   </div>
-                ))}
+                  )
+                })}
               </div>
 
               <div className="flex justify-end gap-3">
