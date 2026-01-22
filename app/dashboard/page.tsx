@@ -4,7 +4,7 @@ import type React from "react"
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react" // Added useEffect
 import { motion, AnimatePresence } from "framer-motion"
-import { LayoutDashboard, Scissors, Calendar, ClipboardList, Settings, LogOut, TrendingUp, Users, DollarSign, BarChart3, Plus, ChevronLeft, ChevronRight, Building2, LinkIcon, QrCode, Copy, Check, Upload, Sparkles, ArrowUpRight, Clock, UserPlus, CalendarClock, X, Lock, Package, Layers, User, ArrowRight, ImageIcon, Menu } from 'lucide-react'
+import { LayoutDashboard, Scissors, Calendar, ClipboardList, Settings, LogOut, TrendingUp, Users, DollarSign, BarChart3, Plus, ChevronLeft, ChevronRight, Building2, LinkIcon, QrCode, Copy, Check, Upload, Sparkles, ArrowUpRight, Clock, UserPlus, CalendarClock, X, Lock, Package, Layers, User, ArrowRight, ImageIcon, Menu, MapPin } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -3947,6 +3947,34 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
                       </Button>
                     </div>
                     )}
+                  </motion.div>
+
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.15 }}
+                    className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100"
+                  >
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="w-12 h-12 rounded-xl bg-[#DFDBF1] flex items-center justify-center">
+                        <MapPin className="w-6 h-6 text-[#AFA1FD]" />
+                      </div>
+                      <div>
+                        <h2 className="text-2xl font-bold text-[#2C293F]">Sedes de la empresa</h2>
+                        <p className="text-sm text-[#AFA1FD]">Crea y administra las sedes que verán los clientes</p>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end">
+                      <Link href="/dashboard/dueno/locations">
+                        <Button
+                          variant="outline"
+                          className="gap-2 border-gray-300 bg-transparent hover:border-[#AFA1FD] hover:text-[#AFA1FD]"
+                        >
+                          Gestionar sedes
+                        </Button>
+                      </Link>
+                    </div>
                   </motion.div>
 
                   <motion.div
