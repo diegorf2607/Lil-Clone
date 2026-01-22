@@ -241,34 +241,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
   // Reservations will be synced from CRM store appointments
   const [reservations, setReservations] = useState<Reservation[]>([])
 
-  const [services, setServices] = useState<Service[]>([
-    {
-      id: 1,
-      name: "Manicura Clásica",
-      description: "Limpieza, corte y pulido",
-      image: "", // Placeholder for image
-      duration: 30,
-      price: 35,
-      showPublic: true,
-      requiereAdelanto: false,
-      montoAdelanto: 0,
-      metodoPago: "no-aplica",
-      esPack: false,
-    },
-    {
-      id: 2,
-      name: "Pedicura Deluxe",
-      description: "Tratamiento completo con masaje",
-      image: "", // Placeholder for image
-      duration: 45,
-      price: 55,
-      showPublic: true,
-      requiereAdelanto: true,
-      montoAdelanto: 20,
-      metodoPago: "online",
-      esPack: false,
-    },
-  ])
+  const [services, setServices] = useState<Service[]>([])
 
   const [isServiceModalOpen, setIsServiceModalOpen] = useState(false)
   const [editingServiceId, setEditingServiceId] = useState<number | null>(null)
