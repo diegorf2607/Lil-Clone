@@ -41,18 +41,20 @@ export function useBusinessInfo() {
   }, [useSupabase])
 
   const saveBusinessInfo = useCallback(
-    async (info: BusinessInfo) => {
+    async (info: BusinessInfo): Promise<boolean> => {
       try {
         if (useSupabase) {
           const success = await upsertBusinessInfo(info)
           if (success) {
             setBusinessInfo(info)
           }
-        } else {
-          console.error("Supabase no configurado. No se puede guardar información del negocio.")
+          return success
         }
+        console.error("Supabase no configurado. No se puede guardar información del negocio.")
+        return false
       } catch (error) {
         console.error("Error saving business info:", error)
+        return false
       }
     },
     [useSupabase]

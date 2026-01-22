@@ -1231,6 +1231,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
   })
 
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
+  const [isSavingBusinessInfo, setIsSavingBusinessInfo] = useState(false)
   const [logoUploading, setLogoUploading] = useState(false)
   const [qrGenerated, setQrGenerated] = useState(false)
   const [calendarConnected, setCalendarConnected] = useState(false)
@@ -1656,18 +1657,29 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
       return
     }
 
-    // Save to Supabase
-    await saveBusinessInfoToSupabase({
-      name: businessInfo.name,
-      email: businessInfo.email,
-      phone: businessInfo.phone,
-      address: businessInfo.address,
-      logo: businessInfo.logo,
-      brandColor: businessInfo.brandColor,
-      publicLink: businessInfo.publicSlug,
-    })
-    setSaveMessage("Cambios guardados exitosamente")
-    setTimeout(() => setSaveMessage(null), 3000)
+    setIsSavingBusinessInfo(true)
+    try {
+      const success = await saveBusinessInfoToSupabase({
+        name: businessInfo.name,
+        email: businessInfo.email,
+        phone: businessInfo.phone,
+        address: businessInfo.address,
+        logo: businessInfo.logo,
+        brandColor: businessInfo.brandColor,
+        publicLink: businessInfo.publicSlug,
+      })
+      if (!success) {
+        setSaveMessage("No se pudieron guardar los cambios. Verifica la conexión a Supabase.")
+      } else {
+        setSaveMessage("Cambios guardados exitosamente")
+      }
+    } catch (error) {
+      console.error("Error saving business info:", error)
+      setSaveMessage("No se pudieron guardar los cambios. Intenta nuevamente.")
+    } finally {
+      setIsSavingBusinessInfo(false)
+      setTimeout(() => setSaveMessage(null), 3000)
+    }
   }
 
   const handleLogoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1679,18 +1691,28 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
       reader.onloadend = async () => {
         const updatedInfo = { ...businessInfo, logo: reader.result as string }
         setBusinessInfo(updatedInfo)
-        await saveBusinessInfoToSupabase({
-          name: updatedInfo.name,
-          email: updatedInfo.email,
-          phone: updatedInfo.phone,
-          address: updatedInfo.address,
-          logo: updatedInfo.logo,
-          brandColor: updatedInfo.brandColor,
-          publicLink: updatedInfo.publicSlug,
-        })
-        setLogoUploading(false)
-        setSaveMessage("Logo subido exitosamente")
-        setTimeout(() => setSaveMessage(null), 3000)
+        try {
+          const success = await saveBusinessInfoToSupabase({
+            name: updatedInfo.name,
+            email: updatedInfo.email,
+            phone: updatedInfo.phone,
+            address: updatedInfo.address,
+            logo: updatedInfo.logo,
+            brandColor: updatedInfo.brandColor,
+            publicLink: updatedInfo.publicSlug,
+          })
+          if (!success) {
+            setSaveMessage("No se pudo guardar el logo. Verifica la conexión a Supabase.")
+          } else {
+            setSaveMessage("Logo subido exitosamente")
+          }
+        } catch (error) {
+          console.error("Error saving logo:", error)
+          setSaveMessage("No se pudo guardar el logo. Intenta nuevamente.")
+        } finally {
+          setLogoUploading(false)
+          setTimeout(() => setSaveMessage(null), 3000)
+        }
       }
       reader.readAsDataURL(file)
     }
@@ -3912,9 +3934,10 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
                     <div className="mt-6 flex justify-end">
                       <Button
                         onClick={handleSaveBusinessInfo}
+                        disabled={isSavingBusinessInfo}
                         className="bg-gradient-to-r from-[#AFA1FD] to-[#8B7FE8] hover:from-[#9890E8] hover:to-[#7A6FD8] text-white shadow-lg"
                       >
-                        Guardar cambios
+                        {isSavingBusinessInfo ? "Guardando..." : "Guardar cambios"}
                       </Button>
                     </div>
                     )}
