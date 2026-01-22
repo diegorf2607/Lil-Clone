@@ -175,15 +175,15 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
   )
   const reconciledAppointmentsRef = useRef<Set<string>>(new Set())
 
-  const normalizeDateString = (dateStr: string) => {
+  const normalizeDateString = useCallback((dateStr: string) => {
     if (dateStr.includes("/")) {
       const [day, month, year] = dateStr.split("/")
       return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`
     }
     return dateStr
-  }
+  }, [])
 
-  const normalizeTimeTo24 = (timeStr: string) => {
+  const normalizeTimeTo24 = useCallback((timeStr: string) => {
     if (!timeStr) return ""
     if (timeStr.match(/^\d{2}:\d{2}$/)) return timeStr
     if (timeStr.includes("AM") || timeStr.includes("PM")) {
@@ -195,7 +195,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
       return `${hour24.toString().padStart(2, "0")}:${minutes}`
     }
     return timeStr
-  }
+  }, [])
 
   useEffect(() => {
     if (!isLoading && !user) {
