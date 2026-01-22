@@ -116,11 +116,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               (item.href === "/dashboard" && pathname === "/dashboard") ||
               (item.id === "customers" && pathname?.includes("/customers"))
             return (
-              <button
+              <Link
                 key={item.id}
-                type="button"
+                href={item.href}
                 onClick={() => {
-                  router.push(item.href)
                   setMobileMenuOpen(false)
                 }}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all cursor-pointer ${
@@ -131,7 +130,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               >
                 <Icon className="w-5 h-5 flex-shrink-0" />
                 {sidebarOpen && <span className="text-sm font-medium">{item.label}</span>}
-              </button>
+              </Link>
             )
           })}
         </nav>

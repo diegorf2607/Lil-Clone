@@ -23,10 +23,10 @@ export default function LoginPage() {
     setError("")
     setIsLoading(true)
 
-    const success = await login(email, password)
+    const result = await login(email, password)
 
-    if (!success) {
-      setError("Credenciales incorrectas. Intenta de nuevo.")
+    if (!result.success) {
+      setError(result.error || "Credenciales incorrectas. Intenta de nuevo.")
       setIsLoading(false)
     }
     // If successful, the login function will redirect automatically
@@ -151,7 +151,7 @@ export default function LoginPage() {
 
               {/* Forgot Password Link */}
               <div className="flex justify-end">
-                <Link href="#" className="text-sm text-[#AFA1FD] hover:text-[#2C293F] transition-colors font-medium">
+                <Link href="/forgot-password" className="text-sm text-[#AFA1FD] hover:text-[#2C293F] transition-colors font-medium">
                   ¿Olvidaste tu contraseña?
                 </Link>
               </div>
