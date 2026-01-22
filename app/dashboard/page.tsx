@@ -1295,7 +1295,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
   useEffect(() => {
     if (servicesLoaded && supabaseServices.length > 0) {
       setServices(supabaseServices.map((s) => ({
-        id: parseInt(s.id) || Date.now(),
+        id: parseInt(s.id.replace(/-/g, "").substring(0, 15), 16) || Date.now() + Math.random() * 1000,
         name: s.name,
         description: s.description || "",
         image: s.image,

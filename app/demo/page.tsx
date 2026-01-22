@@ -106,7 +106,7 @@ export default function DemoPage() {
     ? supabaseServices
         .filter((s) => s.showPublic)
         .map((s) => ({
-          id: parseInt(s.id) || Date.now(),
+          id: parseInt(s.id.replace(/-/g, "").substring(0, 15), 16) || Date.now() + Math.random() * 1000,
           name: s.name,
           description: s.description || "",
           price: s.price,

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { getServices, createService, updateService, deleteService } from "@/lib/supabase/services"
 import type { Service } from "@/lib/supabase/services"
@@ -18,6 +18,7 @@ export function useServices() {
   const [services, setServices] = useState<Service[]>([])
   const [isLoaded, setIsLoaded] = useState(false)
   const useSupabase = isSupabaseConfigured()
+  const channelRef = useRef<any>(null)
 
   // Load services
   useEffect(() => {
@@ -26,6 +27,29 @@ export function useServices() {
         if (useSupabase) {
           const loadedServices = await getServices()
           setServices(loadedServices)
+          
+          // Set up real-time subscription for services table
+          const supabase = createClient()
+          if (channelRef.current) {
+            await supabase.removeChannel(channelRef.current)
+          }
+          
+          channelRef.current = supabase
+            .channel("services-changes")
+            .on(
+              "postgres_changes",
+              {
+                event: "*",
+                schema: "public",
+                table: "services",
+              },
+              async () => {
+                // Reload services when there are changes
+                const reloadedServices = await getServices()
+                setServices(reloadedServices)
+              }
+            )
+            .subscribe()
         } else {
           // Fallback to localStorage
           const saved = localStorage.getItem("lilaServices")
@@ -67,6 +91,14 @@ export function useServices() {
     }
 
     loadServices()
+    
+    // Cleanup subscription on unmount
+    return () => {
+      if (channelRef.current && useSupabase) {
+        const supabase = createClient()
+        supabase.removeChannel(channelRef.current)
+      }
+    }
   }, [useSupabase])
 
   const saveServices = useCallback(
@@ -143,8 +175,8 @@ export function useServices() {
           // Reload services from Supabase to get updated IDs
           const reloadedServices = await getServices()
           if (reloadedServices.length > 0) {
-            setServices(reloadedServices.map((s) => ({
-              id: parseInt(s.id) || Date.now(),
+            const mappedServices = reloadedServices.map((s) => ({
+              id: s.id,
               name: s.name,
               description: s.description,
               image: s.image,
@@ -158,7 +190,8 @@ export function useServices() {
               subservicios: s.subservicios,
               availableDays: s.availableDays,
               customDays: s.customDays,
-            })))
+            }))
+            setServices(mappedServices)
           } else {
             setServices(servicesToSave)
           }
@@ -179,9 +212,42 @@ export function useServices() {
     [useSupabase]
   )
 
+  const reloadServices = useCallback(async () => {
+    try {
+      if (useSupabase) {
+        const loadedServices = await getServices()
+        setServices(loadedServices)
+      } else {
+        const saved = localStorage.getItem("lilaServices")
+        if (saved) {
+          const parsed = JSON.parse(saved)
+          setServices(parsed.map((s: any) => ({
+            id: s.id?.toString() || `service_${Date.now()}`,
+            name: s.name,
+            description: s.description,
+            image: s.image,
+            duration: s.duration || 30,
+            price: s.price || 0,
+            showPublic: s.showPublic !== undefined ? s.showPublic : true,
+            requiereAdelanto: s.requiereAdelanto || false,
+            montoAdelanto: s.montoAdelanto || 0,
+            metodoPago: s.metodoPago || "no-aplica",
+            esPack: s.esPack || false,
+            subservicios: s.subservicios,
+            availableDays: s.availableDays,
+            customDays: s.customDays || false,
+          })))
+        }
+      }
+    } catch (error) {
+      console.error("Error reloading services:", error)
+    }
+  }, [useSupabase])
+
   return {
     services,
     isLoaded,
     saveServices,
+    reloadServices,
   }
 }
