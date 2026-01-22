@@ -13,13 +13,14 @@ const { createClient } = require("@supabase/supabase-js")
 require("dotenv").config({ path: ".env.local" })
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
 if (!supabaseUrl || !supabaseServiceKey) {
-  console.error("❌ Error: Faltan variables de entorno")
-  console.log("Necesitas configurar en .env.local:")
+  console.error("❌ Error: Faltan variables de entorno\n")
+  console.log("Añade en .env.local:")
   console.log("  NEXT_PUBLIC_SUPABASE_URL=tu-url")
-  console.log("  SUPABASE_SERVICE_ROLE_KEY=tu-service-role-key (opcional, pero recomendado)")
+  console.log("  SUPABASE_SERVICE_ROLE_KEY=tu-service-role-key\n")
+  console.log("Service Role Key: Supabase Dashboard → tu proyecto → Settings → API → service_role")
   process.exit(1)
 }
 

@@ -21,6 +21,7 @@ export interface User {
 interface AuthContextType {
   user: User | null
   supabaseUser: SupabaseUser | null
+  isSupabaseAuth: boolean
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>
   signup: (email: string, password: string, name: string, role: UserRole, locationId?: string) => Promise<{ success: boolean; error?: string }>
   logout: () => Promise<void>
@@ -31,6 +32,33 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
+/** Usuarios demo cuando Supabase no está configurado */
+const MOCK_USERS: Record<string, { password: string; user: User }> = {
+  "dueno@lila.com": {
+    password: "demo123",
+    user: { id: "1", email: "dueno@lila.com", name: "María González", role: "dueno", locations: ["loc1", "loc2", "loc3"] },
+  },
+  "admin@lila.com": {
+    password: "demo123",
+    user: { id: "2", email: "admin@lila.com", name: "Carlos Ramírez", role: "administrador", locationId: "loc1" },
+  },
+  "recepcion@lila.com": {
+    password: "demo123",
+    user: { id: "3", email: "recepcion@lila.com", name: "Ana Martínez", role: "recepcionista", locationId: "loc1" },
+  },
+  "staff@lila.com": {
+    password: "demo123",
+    user: { id: "4", email: "staff@lila.com", name: "Luis Torres", role: "staff", locationId: "loc1" },
+  },
+}
+
+function isSupabaseConfigured(): boolean {
+  if (typeof window === "undefined") return false
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  return !!(url && key && url !== "https://placeholder.supabase.co")
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [supabaseUser, setSupabaseUser] = useState<SupabaseUser | null>(null)
@@ -38,28 +66,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter()
   const supabase = createClient()
 
+  const [isSupabaseAuth, setIsSupabaseAuth] = useState(false)
+
   // Load user session on mount
   useEffect(() => {
     const loadUser = async () => {
       try {
-        // Check if Supabase is configured
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-        const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+        const useSupabase = isSupabaseConfigured()
 
-        if (!supabaseUrl || !supabaseAnonKey || supabaseUrl === "https://placeholder.supabase.co") {
-          // Supabase not configured, skip auth
+        if (!useSupabase) {
+          // Modo demo: cargar usuario desde localStorage
+          setIsSupabaseAuth(false)
+          const stored = typeof window !== "undefined" ? localStorage.getItem("lila_user") : null
+          if (stored) {
+            try {
+              setUser(JSON.parse(stored))
+            } catch {
+              localStorage.removeItem("lila_user")
+            }
+          }
           setIsLoading(false)
           return
         }
 
+        setIsSupabaseAuth(true)
         const { data: { session }, error } = await supabase.auth.getSession()
-        
+
         if (error) {
           console.error("Error loading session:", error)
           setIsLoading(false)
           return
         }
-        
+
         if (session?.user) {
           setSupabaseUser(session.user)
           await loadUserProfile(session.user.id)
@@ -73,7 +111,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     loadUser()
 
-    // Listen for auth changes
+    if (!isSupabaseConfigured()) return
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === "SIGNED_IN" && session?.user) {
         setSupabaseUser(session.user)
@@ -86,9 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     })
 
-    return () => {
-      subscription.unsubscribe()
-    }
+    return () => subscription.unsubscribe()
   }, [])
 
   const loadUserProfile = async (userId: string) => {
@@ -123,56 +160,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      // Check if Supabase is configured
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-      if (!supabaseUrl || !supabaseAnonKey || supabaseUrl === "https://placeholder.supabase.co") {
-        return { success: false, error: "Supabase no está configurado. Por favor configura las variables de entorno." }
+      if (!isSupabaseConfigured()) {
+        // Modo demo: usuarios mock
+        const mock = MOCK_USERS[email.toLowerCase().trim()]
+        if (!mock || mock.password !== password) {
+          return { success: false, error: "Credenciales incorrectas. Usa dueno@lila.com, admin@lila.com, recepcion@lila.com o staff@lila.com con contraseña demo123." }
+        }
+        setUser(mock.user)
+        if (typeof window !== "undefined") localStorage.setItem("lila_user", JSON.stringify(mock.user))
+        switch (mock.user.role) {
+          case "dueno": router.push("/dashboard/dueno"); break
+          case "administrador": router.push("/dashboard/admin"); break
+          case "recepcionista": router.push("/dashboard/recepcion"); break
+          case "staff": router.push("/dashboard/staff"); break
+          default: router.push("/dashboard")
+        }
+        return { success: true }
       }
 
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
-
-      if (error) {
-        return { success: false, error: error.message }
-      }
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+      if (error) return { success: false, error: error.message }
 
       if (data.user) {
         setSupabaseUser(data.user)
         await loadUserProfile(data.user.id)
-
-        // Redirect based on role
-        if (data.user) {
-          const { data: profile } = await supabase
-            .from("user_profiles")
-            .select("role")
-            .eq("id", data.user.id)
-            .single()
-
-          if (profile) {
-            switch (profile.role) {
-              case "dueno":
-                router.push("/dashboard/dueno")
-                break
-              case "administrador":
-                router.push("/dashboard/admin")
-                break
-              case "recepcionista":
-                router.push("/dashboard/recepcion")
-                break
-              case "staff":
-                router.push("/dashboard/staff")
-                break
-              default:
-                router.push("/dashboard")
-            }
+        const { data: profile } = await supabase.from("user_profiles").select("role").eq("id", data.user.id).single()
+        if (profile) {
+          switch (profile.role) {
+            case "dueno": router.push("/dashboard/dueno"); break
+            case "administrador": router.push("/dashboard/admin"); break
+            case "recepcionista": router.push("/dashboard/recepcion"); break
+            case "staff": router.push("/dashboard/staff"); break
+            default: router.push("/dashboard")
           }
         }
       }
-
       return { success: true }
     } catch (error: any) {
       console.error("Login error:", error)
@@ -187,43 +209,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     role: UserRole,
     locationId?: string
   ): Promise<{ success: boolean; error?: string }> => {
+    if (!isSupabaseConfigured()) {
+      return { success: false, error: "Configura Supabase para registrar nuevos usuarios. Usa el modo demo (dueno@lila.com / demo123) mientras tanto." }
+    }
     try {
-      // Sign up with Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
-        options: {
-          data: {
-            name,
-            role,
-          },
-        },
+        options: { data: { name, role } },
       })
-
-      if (authError) {
-        return { success: false, error: authError.message }
-      }
-
+      if (authError) return { success: false, error: authError.message }
       if (authData.user) {
-        // Update profile with role and location
-        const { error: profileError } = await supabase
-          .from("user_profiles")
-          .update({
-            name,
-            role,
-            location_id: locationId || null,
-          })
-          .eq("id", authData.user.id)
-
-        if (profileError) {
-          console.error("Error updating profile:", profileError)
-          // Don't fail signup if profile update fails, it will be created by trigger
-        }
-
+        await supabase.from("user_profiles").update({ name, role, location_id: locationId || null }).eq("id", authData.user.id)
         setSupabaseUser(authData.user)
         await loadUserProfile(authData.user.id)
       }
-
       return { success: true }
     } catch (error: any) {
       console.error("Signup error:", error)
@@ -233,9 +233,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async (): Promise<void> => {
     try {
-      await supabase.auth.signOut()
+      if (isSupabaseConfigured()) await supabase.auth.signOut()
       setUser(null)
       setSupabaseUser(null)
+      if (typeof window !== "undefined") localStorage.removeItem("lila_user")
       router.push("/login")
     } catch (error) {
       console.error("Logout error:", error)
@@ -243,35 +244,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const resetPassword = async (email: string): Promise<{ success: boolean; error?: string }> => {
+    if (!isSupabaseConfigured()) {
+      return { success: false, error: "Configura Supabase para recuperar contraseña. Usa el modo demo (dueno@lila.com / demo123) mientras tanto." }
+    }
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
-      })
-
-      if (error) {
-        return { success: false, error: error.message }
-      }
-
+      const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/reset-password` })
+      if (error) return { success: false, error: error.message }
       return { success: true }
     } catch (error: any) {
-      console.error("Reset password error:", error)
       return { success: false, error: error.message || "Error al enviar email de recuperación" }
     }
   }
 
   const updatePassword = async (newPassword: string): Promise<{ success: boolean; error?: string }> => {
+    if (!isSupabaseConfigured()) return { success: false, error: "Configura Supabase para cambiar contraseña." }
     try {
-      const { error } = await supabase.auth.updateUser({
-        password: newPassword,
-      })
-
-      if (error) {
-        return { success: false, error: error.message }
-      }
-
+      const { error } = await supabase.auth.updateUser({ password: newPassword })
+      if (error) return { success: false, error: error.message }
       return { success: true }
     } catch (error: any) {
-      console.error("Update password error:", error)
       return { success: false, error: error.message || "Error al actualizar contraseña" }
     }
   }
@@ -281,6 +272,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         user,
         supabaseUser,
+        isSupabaseAuth,
         login,
         signup,
         logout,
