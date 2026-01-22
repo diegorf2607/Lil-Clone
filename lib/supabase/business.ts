@@ -11,6 +11,7 @@ export interface BusinessInfo {
   logo?: string
   brandColor?: string
   publicLink?: string
+  businessHours?: { [key: string]: { start: string; end: string; enabled: boolean } }
   googleCalendarConnected?: boolean
   googleCalendarToken?: string
   qrCode?: string
@@ -38,6 +39,7 @@ export async function getBusinessInfo(): Promise<BusinessInfo | null> {
     logo: data.logo || undefined,
     brandColor: data.brand_color || undefined,
     publicLink: data.public_link || undefined,
+    businessHours: (data.business_hours as any) || undefined,
     googleCalendarConnected: data.google_calendar_connected || false,
     googleCalendarToken: data.google_calendar_token || undefined,
     qrCode: data.qr_code || undefined,
@@ -58,6 +60,7 @@ export async function upsertBusinessInfo(info: BusinessInfo): Promise<boolean> {
     logo: info.logo || null,
     brand_color: info.brandColor || null,
     public_link: info.publicLink || null,
+    business_hours: info.businessHours || null,
     google_calendar_connected: info.googleCalendarConnected || false,
     google_calendar_token: info.googleCalendarToken || null,
     qr_code: info.qrCode || null,

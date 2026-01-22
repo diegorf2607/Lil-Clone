@@ -1260,6 +1260,9 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
         brandColor: supabaseBusinessInfo.brandColor || "#AFA1FD",
         publicSlug: supabaseBusinessInfo.publicLink || "",
       })
+      if (supabaseBusinessInfo.businessHours) {
+        setBusinessHours(supabaseBusinessInfo.businessHours)
+      }
     }
   }, [businessInfoLoaded, supabaseBusinessInfo])
 
@@ -1667,6 +1670,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
         logo: businessInfo.logo,
         brandColor: businessInfo.brandColor,
         publicLink: businessInfo.publicSlug,
+        businessHours,
       })
       if (!success) {
         setSaveMessage("No se pudieron guardar los cambios. Verifica la conexión a Supabase.")
@@ -1700,6 +1704,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
             logo: updatedInfo.logo,
             brandColor: updatedInfo.brandColor,
             publicLink: updatedInfo.publicSlug,
+            businessHours,
           })
           if (!success) {
             setSaveMessage("No se pudo guardar el logo. Verifica la conexión a Supabase.")
@@ -1750,6 +1755,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
       logo: businessInfo.logo,
       brandColor: businessInfo.brandColor,
       publicLink: businessInfo.publicSlug,
+      businessHours,
     })
     // Also save services
     await saveServicesToSupabase(services.map((s) => ({

@@ -48,6 +48,7 @@ CREATE TABLE IF NOT EXISTS business_info (
   logo TEXT, -- base64 or URL
   brand_color TEXT DEFAULT '#AFA1FD',
   public_link TEXT,
+  business_hours JSONB DEFAULT '{"monday": {"start": "09:00", "end": "18:00", "enabled": true}, "tuesday": {"start": "09:00", "end": "18:00", "enabled": true}, "wednesday": {"start": "09:00", "end": "18:00", "enabled": true}, "thursday": {"start": "09:00", "end": "18:00", "enabled": true}, "friday": {"start": "09:00", "end": "18:00", "enabled": true}, "saturday": {"start": "09:00", "end": "18:00", "enabled": true}, "sunday": {"start": "09:00", "end": "18:00", "enabled": false}}'::jsonb,
   google_calendar_connected BOOLEAN DEFAULT FALSE,
   google_calendar_token TEXT,
   qr_code TEXT, -- base64 or URL

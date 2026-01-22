@@ -46,6 +46,8 @@ interface Service {
   esPack: boolean
   subservicios?: SubService[]
   image?: string
+  availableDays?: { [key: string]: boolean }
+  customDays?: boolean
 }
 
 interface BookingData {
@@ -72,6 +74,10 @@ interface BusinessInfo {
   publicSlug: string
   brandColor: string
   locations?: Location[] // Added locations array
+  businessHours?: { [key: string]: { start: string; end: string; enabled: boolean } }
+}
+interface BusinessHours {
+  [key: string]: { start: string; end: string; enabled: boolean }
 }
 
 const timeSlots = [
@@ -116,6 +122,16 @@ export default function PublicBookingPage({ params }: { params: { slug: string }
   const [services, setServices] = useState<Service[]>([])
   const [expandedPackId, setExpandedPackId] = useState<number | null>(null)
   const [locations, setLocations] = useState<Location[]>([])
+  const [businessHours, setBusinessHours] = useState<BusinessHours>({
+    monday: { start: "09:00", end: "18:00", enabled: true },
+    tuesday: { start: "09:00", end: "18:00", enabled: true },
+    wednesday: { start: "09:00", end: "18:00", enabled: true },
+    thursday: { start: "09:00", end: "18:00", enabled: true },
+    friday: { start: "09:00", end: "18:00", enabled: true },
+    saturday: { start: "09:00", end: "18:00", enabled: true },
+    sunday: { start: "09:00", end: "18:00", enabled: false },
+  })
+  const [bookedTimes, setBookedTimes] = useState<Set<string>>(new Set())
 
   // Use Supabase hooks
   const { services: supabaseServices, isLoaded: servicesLoaded } = useServices()
@@ -140,6 +156,9 @@ export default function PublicBookingPage({ params }: { params: { slug: string }
       if (supabaseBusinessInfo.brandColor) {
         setBrandColor(supabaseBusinessInfo.brandColor)
       }
+      if (supabaseBusinessInfo.businessHours) {
+        setBusinessHours(supabaseBusinessInfo.businessHours)
+      }
     }
   }, [businessInfoLoaded, supabaseBusinessInfo])
 
@@ -155,9 +174,81 @@ export default function PublicBookingPage({ params }: { params: { slug: string }
         esPack: s.esPack,
         subservicios: s.subservicios,
         image: s.image,
+        availableDays: s.availableDays,
+        customDays: s.customDays,
       })))
     }
   }, [servicesLoaded, supabaseServices])
+
+  const getDayKey = (dateStr: string) => {
+    const day = new Date(dateStr + "T00:00:00")
+    const dayIndex = day.getDay()
+    const dayKeys = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]
+    return dayKeys[dayIndex] || "monday"
+  }
+
+  const toMinutes = (time24: string) => {
+    const [hours, minutes] = time24.split(":").map((val) => parseInt(val, 10))
+    return (hours || 0) * 60 + (minutes || 0)
+  }
+
+  const to24Hour = (time12: string) => {
+    const [time, period] = time12.split(" ")
+    const [hours, minutes] = time.split(":")
+    let hour24 = parseInt(hours, 10)
+    if (period === "PM" && hour24 !== 12) hour24 += 12
+    if (period === "AM" && hour24 === 12) hour24 = 0
+    return `${hour24.toString().padStart(2, "0")}:${minutes}`
+  }
+
+  const selectedDayKey = bookingData.date ? getDayKey(bookingData.date) : null
+  const selectedBusinessDay = selectedDayKey ? businessHours[selectedDayKey] : null
+  const isBusinessOpen = selectedBusinessDay?.enabled ?? false
+  const isServiceAvailable =
+    !bookingData.service?.availableDays ||
+    bookingData.service.availableDays[selectedDayKey || "monday"] !== false
+
+  const isSlotAvailable = (slot: string) => {
+    if (!bookingData.date || !selectedBusinessDay || !isBusinessOpen || !isServiceAvailable) {
+      return false
+    }
+    const slot24 = to24Hour(slot)
+    const slotMinutes = toMinutes(slot24)
+    const startMinutes = toMinutes(selectedBusinessDay.start)
+    const endMinutes = toMinutes(selectedBusinessDay.end)
+    if (slotMinutes < startMinutes || slotMinutes >= endMinutes) return false
+    if (bookedTimes.has(slot24)) return false
+    return true
+  }
+
+  useEffect(() => {
+    if (!bookingData.date) {
+      setBookedTimes(new Set())
+      return
+    }
+    const loadBookedTimes = async () => {
+      try {
+        const supabase = createClient()
+        const { data, error } = await supabase
+          .from("appointments")
+          .select("start_time, staff_id")
+          .eq("date", bookingData.date)
+        if (error) throw error
+        const times = new Set<string>()
+        ;(data || []).forEach((apt: any) => {
+          const time = (apt.start_time || "").toString().substring(0, 5)
+          if (!bookingData.staffId || apt.staff_id === bookingData.staffId) {
+            if (time) times.add(time)
+          }
+        })
+        setBookedTimes(times)
+      } catch (error) {
+        console.error("Error loading booked times:", error)
+        setBookedTimes(new Set())
+      }
+    }
+    loadBookedTimes()
+  }, [bookingData.date, bookingData.staffId])
 
   useEffect(() => {
     if (!servicesLoaded) return
@@ -696,6 +787,13 @@ export default function PublicBookingPage({ params }: { params: { slug: string }
                   <Clock className="w-5 h-5" style={{ color: brandColor }} />
                   Hora {bookingData.service?.esPack && "de inicio"}
                 </Label>
+                {bookingData.date && (!isBusinessOpen || !isServiceAvailable) && (
+                  <p className="text-sm text-red-600 mb-4">
+                    {isBusinessOpen
+                      ? "El servicio no está disponible este día."
+                      : "El negocio no atiende este día."}
+                  </p>
+                )}
                 <div className="grid grid-cols-4 gap-3 max-h-96 overflow-y-auto p-3 bg-gray-50 rounded-2xl">
                   {timeSlots.map((time, index) => (
                     <motion.div
@@ -705,8 +803,9 @@ export default function PublicBookingPage({ params }: { params: { slug: string }
                       transition={{ delay: index * 0.02 }}
                     >
                       <Button
-                        onClick={() => setBookingData({ ...bookingData, time })}
+                        onClick={() => isSlotAvailable(time) && setBookingData({ ...bookingData, time })}
                         variant="outline"
+                        disabled={!isSlotAvailable(time)}
                         className={`w-full transition-all shadow-sm ${
                           bookingData.time === time
                             ? "text-white border-transparent shadow-lg scale-105"
@@ -716,6 +815,7 @@ export default function PublicBookingPage({ params }: { params: { slug: string }
                           backgroundColor: bookingData.time === time ? brandColor : "white",
                           color: bookingData.time === time ? "white" : brandColor,
                           borderColor: bookingData.time === time ? brandColor : "#d1d5db",
+                          opacity: isSlotAvailable(time) ? 1 : 0.4,
                         }}
                       >
                         {time}
@@ -735,7 +835,7 @@ export default function PublicBookingPage({ params }: { params: { slug: string }
                 </Button>
                 <Button
                   onClick={handleDateTimeSelect}
-                  disabled={!bookingData.date || !bookingData.time || !bookingData.location}
+                  disabled={!bookingData.date || !bookingData.time || !bookingData.location || !isBusinessOpen || !isServiceAvailable}
                   className="flex-1 text-white disabled:opacity-50 shadow-lg text-lg py-6"
                   style={{ backgroundColor: brandColor }}
                 >

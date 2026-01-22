@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -13,6 +13,8 @@ import { BirthdateField } from "@/components/birthdate-field"
 import { InspirationUploader } from "@/components/inspiration-uploader"
 import { useCRMStore } from "@/lib/hooks/use-crm-store"
 import { useServices } from "@/lib/hooks/use-services"
+import { useBusinessInfo } from "@/lib/hooks/use-business-info"
+import { createClient } from "@/lib/supabase/client"
 import type { InspirationImage } from "@/lib/types/crm"
 
 type Step = "service" | "location" | "datetime" | "contact" | "confirmation"
@@ -26,6 +28,8 @@ interface Service {
   requiereAdelanto: boolean
   montoAdelanto: number
   metodoPago: "online" | "transferencia" | "no-aplica"
+  availableDays?: { [key: string]: boolean }
+  customDays?: boolean
 }
 
 interface BookingData {
@@ -35,6 +39,10 @@ interface BookingData {
   name: string
   email: string
   phone: string
+}
+
+interface BusinessHours {
+  [key: string]: { start: string; end: string; enabled: boolean }
 }
 
 // Services will be loaded from useServices hook - same source as dashboard
@@ -62,30 +70,20 @@ const timeSlots = [
   "6:30 PM",
 ]
 
-const locations = [
-  {
-    id: "1",
-    name: "Sede Centro",
-    address: "Av. Principal 123, Centro",
-    phone: "+1 234 567 8900",
-  },
-  {
-    id: "2",
-    name: "Sede Norte",
-    address: "Calle Norte 456, Zona Norte",
-    phone: "+1 234 567 8901",
-  },
-  {
-    id: "3",
-    name: "Sede Sur",
-    address: "Av. Sur 789, Zona Sur",
-    phone: "+1 234 567 8902",
-  },
-]
+const defaultBusinessHours: BusinessHours = {
+  monday: { start: "09:00", end: "18:00", enabled: true },
+  tuesday: { start: "09:00", end: "18:00", enabled: true },
+  wednesday: { start: "09:00", end: "18:00", enabled: true },
+  thursday: { start: "09:00", end: "18:00", enabled: true },
+  friday: { start: "09:00", end: "18:00", enabled: true },
+  saturday: { start: "09:00", end: "18:00", enabled: true },
+  sunday: { start: "09:00", end: "18:00", enabled: false },
+}
 
 export default function DemoPage() {
   const crmStore = useCRMStore()
   const { services: supabaseServices, isLoaded: servicesLoaded } = useServices()
+  const { businessInfo: supabaseBusinessInfo, isLoaded: businessInfoLoaded } = useBusinessInfo()
   const [step, setStep] = useState<Step>("service")
   const [selectedService, setSelectedService] = useState<string>("")
   const [selectedLocation, setSelectedLocation] = useState<string>("")
@@ -100,6 +98,9 @@ export default function DemoPage() {
   const [cardNumber, setCardNumber] = useState("")
   const [cardExpiry, setCardExpiry] = useState("")
   const [cardCvc, setCardCvc] = useState("")
+  const [locations, setLocations] = useState<Array<{ id: string; name: string; address: string; phone: string }>>([])
+  const [businessHours, setBusinessHours] = useState<BusinessHours>(defaultBusinessHours)
+  const [bookedTimes, setBookedTimes] = useState<Set<string>>(new Set())
 
   const toNumericServiceId = (id: string | number | null | undefined) => {
     const raw = typeof id === "string" ? id : id != null ? String(id) : ""
@@ -120,8 +121,110 @@ export default function DemoPage() {
           requiereAdelanto: s.requiereAdelanto || false,
           montoAdelanto: s.montoAdelanto || 0,
           metodoPago: s.metodoPago || "no-aplica",
+          availableDays: s.availableDays,
+          customDays: s.customDays,
         }))
     : []
+
+  useEffect(() => {
+    if (businessInfoLoaded && supabaseBusinessInfo?.businessHours) {
+      setBusinessHours(supabaseBusinessInfo.businessHours)
+    }
+  }, [businessInfoLoaded, supabaseBusinessInfo])
+
+  useEffect(() => {
+    if (!servicesLoaded) return
+    const loadLocations = async () => {
+      try {
+        const supabase = createClient()
+        const { data, error } = await supabase
+          .from("locations")
+          .select("*")
+          .order("created_at", { ascending: false })
+        if (error) throw error
+        const mapped = (data || []).map((loc: any) => ({
+          id: loc.id,
+          name: loc.name,
+          address: loc.address || "",
+          phone: loc.phone || "",
+        }))
+        setLocations(mapped)
+      } catch (error) {
+        console.error("Error loading locations:", error)
+        setLocations([])
+      }
+    }
+    loadLocations()
+  }, [servicesLoaded])
+
+  const to24Hour = (time12: string) => {
+    const [time, period] = time12.split(" ")
+    const [hours, minutes] = time.split(":")
+    let hour24 = parseInt(hours, 10)
+    if (period === "PM" && hour24 !== 12) hour24 += 12
+    if (period === "AM" && hour24 === 12) hour24 = 0
+    return `${hour24.toString().padStart(2, "0")}:${minutes}`
+  }
+
+  const toMinutes = (time24: string) => {
+    const [hours, minutes] = time24.split(":").map((val) => parseInt(val, 10))
+    return (hours || 0) * 60 + (minutes || 0)
+  }
+
+  const getDayKey = (dateStr: string) => {
+    const day = new Date(dateStr + "T00:00:00")
+    const dayIndex = day.getDay()
+    const dayKeys = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]
+    return dayKeys[dayIndex] || "monday"
+  }
+
+  const selectedServiceData = services.find((s) => s.name === selectedService)
+  const selectedDayKey = selectedDate ? getDayKey(selectedDate) : null
+  const selectedBusinessDay = selectedDayKey ? businessHours[selectedDayKey] : null
+  const isBusinessOpen = selectedBusinessDay?.enabled ?? false
+  const isServiceAvailable =
+    !selectedServiceData?.availableDays ||
+    selectedServiceData.availableDays[selectedDayKey || "monday"] !== false
+
+  const isSlotAvailable = (slot: string) => {
+    if (!selectedDate || !selectedBusinessDay || !isBusinessOpen || !isServiceAvailable) {
+      return false
+    }
+    const slot24 = to24Hour(slot)
+    const slotMinutes = toMinutes(slot24)
+    const startMinutes = toMinutes(selectedBusinessDay.start)
+    const endMinutes = toMinutes(selectedBusinessDay.end)
+    if (slotMinutes < startMinutes || slotMinutes >= endMinutes) return false
+    if (bookedTimes.has(slot24)) return false
+    return true
+  }
+
+  useEffect(() => {
+    if (!selectedDate) {
+      setBookedTimes(new Set())
+      return
+    }
+    const loadBookedTimes = async () => {
+      try {
+        const supabase = createClient()
+        const { data, error } = await supabase
+          .from("appointments")
+          .select("start_time")
+          .eq("date", selectedDate)
+        if (error) throw error
+        const times = new Set<string>()
+        ;(data || []).forEach((apt: any) => {
+          const time = (apt.start_time || "").toString().substring(0, 5)
+          if (time) times.add(time)
+        })
+        setBookedTimes(times)
+      } catch (error) {
+        console.error("Error loading booked times:", error)
+        setBookedTimes(new Set())
+      }
+    }
+    loadBookedTimes()
+  }, [selectedDate])
 
 
   const handleServiceSelect = (service: string) => {
@@ -509,6 +612,13 @@ export default function DemoPage() {
                   <Clock className="w-5 h-5 text-[#AFA1FD]" />
                   Hora
                 </Label>
+                {selectedDate && (!isBusinessOpen || !isServiceAvailable) && (
+                  <p className="text-sm text-red-600 mb-4">
+                    {isBusinessOpen
+                      ? "El servicio no está disponible este día."
+                      : "El negocio no atiende este día."}
+                  </p>
+                )}
                 <div className="grid grid-cols-4 gap-3 max-h-96 overflow-y-auto p-3 bg-gradient-to-br from-[#DFDBF1]/20 to-transparent rounded-2xl">
                   {timeSlots.map((time, index) => (
                     <motion.div
@@ -518,8 +628,9 @@ export default function DemoPage() {
                       transition={{ delay: index * 0.02 }}
                     >
                       <Button
-                        onClick={() => setSelectedTime(time)}
+                        onClick={() => isSlotAvailable(time) && setSelectedTime(time)}
                         variant="outline"
+                        disabled={!isSlotAvailable(time)}
                         className={`w-full transition-all shadow-sm ${
                           selectedTime === time
                             ? "bg-gradient-to-r from-[#AFA1FD] to-[#9890E8] text-white border-[#AFA1FD] shadow-lg scale-105"
@@ -543,7 +654,7 @@ export default function DemoPage() {
                 </Button>
                 <Button
                   onClick={handleDateTimeSelect}
-                  disabled={!selectedDate || !selectedTime}
+                  disabled={!selectedDate || !selectedTime || !isBusinessOpen || !isServiceAvailable}
                   className="flex-1 bg-gradient-to-r from-[#2C293F] to-[#3d3a52] hover:from-[#3d3a52] hover:to-[#2C293F] text-white disabled:opacity-50 shadow-lg text-lg py-6"
                 >
                   Continuar
