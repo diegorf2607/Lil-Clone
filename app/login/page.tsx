@@ -62,17 +62,6 @@ export default function LoginPage() {
         />
       </div>
 
-      <div className="absolute top-6 left-6 z-20">
-        <Image 
-          src="/lila-logo.png" 
-          alt="MyWorkIn" 
-          width={100} 
-          height={32} 
-          className="h-8 w-auto" 
-          priority 
-        />
-      </div>
-
       <div className="relative z-10 flex min-h-screen flex-col items-center justify-center px-4 py-12">
         {/* Login Card */}
         <motion.div
@@ -88,12 +77,19 @@ export default function LoginPage() {
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 transition={{ duration: 0.5, delay: 0.4, type: "spring" }}
-                className="inline-flex items-center justify-center mb-4 p-4 bg-[#0055B8] rounded-full shadow-lg"
+                className="inline-flex items-center justify-center mb-4"
               >
-                <Lock className="w-8 h-8 text-white" />
+                <Image 
+                  src="/lila-logo.png" 
+                  alt="Lilá" 
+                  width={100} 
+                  height={32} 
+                  className="h-12 w-auto" 
+                  priority 
+                />
               </motion.div>
-              <h1 className="text-3xl font-bold text-[#2C293F] mb-2">Iniciar sesión</h1>
-              <p className="text-[#2C293F]/60">Ingresa tus credenciales para acceder al CRM</p>
+              <h1 className="text-3xl font-bold text-[#2C293F] mb-2">Bienvenido de vuelta</h1>
+              <p className="text-[#2C293F]/60">Ingresa a tu cuenta</p>
             </div>
 
             {/* Form */}
@@ -166,7 +162,8 @@ export default function LoginPage() {
                   "Iniciando sesión..."
                 ) : (
                   <>
-                    Ingresar
+                    Iniciar sesión
+                    <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
                   </>
                 )}
               </Button>
