@@ -24,6 +24,7 @@ import { CustomersList } from "@/components/customers-list"
 import { DailyCalendarView } from "@/components/daily-calendar-view"
 import { StaffExtraMinutesForm } from "@/components/staff-extra-minutes-form"
 import { createClient } from "@/lib/supabase/client"
+import { deleteService as deleteServiceFromSupabase } from "@/lib/supabase/services"
 
 type AdminView = "dashboard" | "services" | "calendar" | "reservations" | "config" | "customers"
 
@@ -954,7 +955,7 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
     setServices(updatedServices)
 
     // Save to Supabase
-    await saveServicesToSupabase(updatedServices.map((s) => ({
+    const result = await saveServicesToSupabase(updatedServices.map((s) => ({
       id: s.id.toString(),
       name: s.name,
       description: s.description,
@@ -971,6 +972,11 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
       availableDays: s.availableDays,
       customDays: !!s.availableDays,
     })))
+
+    if (!result.success) {
+      alert(`Error al guardar el servicio: ${result.error}`)
+      return
+    }
 
     setIsServiceModalOpen(false)
     setServiceFormData({
@@ -1000,25 +1006,29 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
 
   const handleDeleteService = async (id: number) => {
     if (confirm("¿Estás seguro de que deseas eliminar este servicio?")) {
+      // Get the original UUID from the map
+      const originalUUID = serviceIdMap.get(id)
+      
+      if (originalUUID) {
+        console.log(`Eliminando servicio con UUID: ${originalUUID}`)
+        const deleted = await deleteServiceFromSupabase(originalUUID)
+        
+        if (!deleted) {
+          alert("Error al eliminar el servicio. Intenta de nuevo.")
+          return
+        }
+        
+        console.log("Servicio eliminado exitosamente")
+      } else {
+        console.warn(`No se encontró UUID para el servicio con id numérico: ${id}`)
+      }
+      
+      // Update local state
       const updatedServices = services.filter((s) => s.id !== id)
       setServices(updatedServices)
-      // Save to Supabase
-      await saveServicesToSupabase(updatedServices.map((s) => ({
-        id: s.id.toString(),
-        name: s.name,
-        description: s.description,
-        image: s.image,
-        duration: s.duration,
-        price: s.price,
-        showPublic: s.showPublic,
-        requiereAdelanto: s.requiereAdelanto,
-        montoAdelanto: s.montoAdelanto,
-        metodoPago: s.metodoPago,
-        esPack: s.esPack,
-        subservicios: s.subservicios,
-        availableDays: s.availableDays,
-        customDays: !!s.availableDays,
-      })))
+      
+      // Reload from Supabase to ensure sync
+      await reloadServices()
     }
   }
 
@@ -1254,7 +1264,10 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
 
   // Use Supabase hooks
   const { businessInfo: supabaseBusinessInfo, isLoaded: businessInfoLoaded, saveBusinessInfo: saveBusinessInfoToSupabase } = useBusinessInfo()
-  const { services: supabaseServices, isLoaded: servicesLoaded, saveServices: saveServicesToSupabase } = useServices()
+  const { services: supabaseServices, isLoaded: servicesLoaded, saveServices: saveServicesToSupabase, lastError: servicesError, reloadServices } = useServices()
+
+  // Map to keep track of numeric IDs to original UUIDs
+  const [serviceIdMap, setServiceIdMap] = useState<Map<number, string>>(new Map())
 
   const toNumericServiceId = (id: string | number | null | undefined) => {
     const raw = typeof id === "string" ? id : id != null ? String(id) : ""
@@ -1283,6 +1296,14 @@ export default function AdminPage({ initialView }: { initialView?: AdminView }) 
   // Sync services from Supabase
   useEffect(() => {
     if (servicesLoaded && supabaseServices.length > 0) {
+      // Build ID map
+      const newIdMap = new Map<number, string>()
+      supabaseServices.forEach((s) => {
+        const numericId = toNumericServiceId(s.id)
+        newIdMap.set(numericId, s.id)
+      })
+      setServiceIdMap(newIdMap)
+      
       setServices(supabaseServices.map((s) => ({
         id: toNumericServiceId(s.id),
         name: s.name,

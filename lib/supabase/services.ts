@@ -48,8 +48,11 @@ export async function getServices(): Promise<Service[]> {
   }))
 }
 
-export async function createService(service: Omit<Service, "id">): Promise<Service | null> {
+export async function createService(service: Omit<Service, "id">): Promise<{ data: Service | null; error: string | null }> {
   const supabase = createClient()
+  
+  console.log("Creando servicio:", service.name)
+  
   const { data, error } = await supabase
     .from("services")
     .insert({
@@ -73,25 +76,30 @@ export async function createService(service: Omit<Service, "id">): Promise<Servi
 
   if (error) {
     console.error("Error creating service:", error)
-    return null
+    return { data: null, error: error.message }
   }
 
+  console.log("Servicio creado exitosamente:", data.id)
+
   return {
-    id: data.id,
-    name: data.name,
-    description: data.description || undefined,
-    image: data.image || undefined,
-    duration: data.duration,
-    price: parseFloat(data.price),
-    showPublic: data.show_public,
-    requiereAdelanto: data.requiere_adelanto,
-    montoAdelanto: parseFloat(data.monto_adelanto || 0),
-    metodoPago: data.metodo_pago,
-    esPack: data.es_pack,
-    subservicios: (data.subservicios as any) || undefined,
-    locationIds: (data.location_ids as any) || undefined,
-    availableDays: (data.available_days as any) || undefined,
-    customDays: data.custom_days || false,
+    data: {
+      id: data.id,
+      name: data.name,
+      description: data.description || undefined,
+      image: data.image || undefined,
+      duration: data.duration,
+      price: parseFloat(data.price),
+      showPublic: data.show_public,
+      requiereAdelanto: data.requiere_adelanto,
+      montoAdelanto: parseFloat(data.monto_adelanto || 0),
+      metodoPago: data.metodo_pago,
+      esPack: data.es_pack,
+      subservicios: (data.subservicios as any) || undefined,
+      locationIds: (data.location_ids as any) || undefined,
+      availableDays: (data.available_days as any) || undefined,
+      customDays: data.custom_days || false,
+    },
+    error: null
   }
 }
 
