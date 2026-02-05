@@ -136,13 +136,58 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { success: false, error: "Supabase no configurado. Configura las variables en Vercel." }
       }
 
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-      if (error) return { success: false, error: error.message }
+      console.log("Iniciando login...")
+      
+      // Timeout de 15 segundos para el login
+      const timeoutPromise = new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error("Tiempo de espera agotado. Verifica tu conexión.")), 15000)
+      )
+      
+      const loginPromise = supabase.auth.signInWithPassword({ email, password })
+      const { data, error } = await Promise.race([loginPromise, timeoutPromise]) as Awaited<typeof loginPromise>
+      
+      if (error) {
+        console.error("Auth error:", error)
+        return { success: false, error: error.message }
+      }
 
       if (data.user) {
+        console.log("Usuario autenticado, cargando perfil...")
         setSupabaseUser(data.user)
-        await loadUserProfile(data.user.id)
-        const { data: profile } = await supabase.from("user_profiles").select("role").eq("id", data.user.id).single()
+        
+        const { data: profile, error: profileError } = await supabase
+          .from("user_profiles")
+          .select("role")
+          .eq("id", data.user.id)
+          .single()
+        
+        if (profileError) {
+          console.error("Error loading profile:", profileError)
+          // Si no existe el perfil, crear uno básico
+          if (profileError.code === "PGRST116") {
+            console.log("Perfil no existe, creando uno nuevo...")
+            const { error: insertError } = await supabase.from("user_profiles").insert({
+              id: data.user.id,
+              email: data.user.email,
+              name: data.user.email?.split("@")[0] || "Usuario",
+              role: "staff",
+              is_active: true
+            })
+            if (insertError) {
+              console.error("Error creating profile:", insertError)
+              return { success: false, error: "Error al crear perfil de usuario. Contacta al administrador." }
+            }
+            router.push("/dashboard/staff")
+            return { success: true }
+          }
+          return { success: false, error: `Error al cargar perfil: ${profileError.message}` }
+        }
+        
+        // Cargar perfil completo en background
+        loadUserProfile(data.user.id)
+        
+        console.log("Perfil cargado, rol:", profile?.role)
+        
         if (profile) {
           switch (profile.role) {
             case "dueno": router.push("/dashboard/dueno"); break
@@ -151,12 +196,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             case "staff": router.push("/dashboard/staff"); break
             default: router.push("/dashboard")
           }
+        } else {
+          router.push("/dashboard")
         }
       }
       return { success: true }
     } catch (error: any) {
       console.error("Login error:", error)
-      return { success: false, error: error.message || "Error al iniciar sesión" }
+      return { success: false, error: error.message || "Error al iniciar sesión. Intenta de nuevo." }
     }
   }
 
